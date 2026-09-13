@@ -81,3 +81,4 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
         // MessageBox(NULL, "XPE_Chams Inyectado", "OK", MB_OK);
     }
     return TRUE;
+} 
