@@ -1,0 +1,37 @@
+name: Build XPE_Chams
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  # Permite ejecutarlo manualmente desde la pestaña Actions
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.3
+
+    - name: Restore NuGet packages
+      run: nuget restore
+
+    - name: Build
+      # Ajusta la solución (.sln) y el proyecto (.vcxproj) si tienes nombres diferentes
+      run: |
+        msbuild /p:Configuration=Release /p:Platform=x64 XPE_Chams.sln
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: XPE_Chams_DLL
+        path: |
+          **/x64/Release/*.dll
+          # Si tu proyecto es de 32 bits, cambia x64 por x86
+          # **/x86/Release/*.dll
