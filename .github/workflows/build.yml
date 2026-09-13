@@ -1,4 +1,4 @@
-name: Build XPE
+name: Build XPE Chams
 
 on:
   push:
@@ -16,22 +16,14 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1.3
 
-    - name: Build
-      # Intenta buscar el archivo .sln primero. Si no existe, usa el .vcxproj.
-      # Cambia 'TuProyecto.sln' o 'TuProyecto.vcxproj' por el nombre real de tus archivos.
+    - name: Compile C++ Directly
+      # Asegúrate de que 'TuArchivo.cpp' sea el nombre exacto de tu archivo C++
+      # Si tienes varios .cpp, puedes usar *.cpp
       run: |
-        # Primero intentamos con el .sln si existe
-        if (Test-Path *.sln) {
-            msbuild /p:Configuration=Release /p:Platform=x64 *.sln
-        } else {
-            # Si no hay .sln, construimos el .vcxproj directamente
-            msbuild /p:Configuration=Release /p:Platform=x64 xpe-chams.vcxproj
-        }
+        cl /LD /EHsc /O2 /I. /Fe:chams.dll TuArchivo.cpp
 
     - name: Upload DLL
-      # Ajusta la ruta final de tu .dll. 
-      # Generalmente está en la carpeta x64\Release\ o bin\Release\
       uses: actions/upload-artifact@v4
       with:
-        name: xpe-chams
-        path: x64/Release/xpe-chams.dll
+        name: chams-dll
+        path: chams.dll
