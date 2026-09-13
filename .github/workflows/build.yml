@@ -13,12 +13,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v1.3
+    - name: Setup MSVC Build Tools
+      # Esta acción configura el PATH para que 'cl' esté disponible
+      uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Compile C++ Directly
-      # Asegúrate de que 'TuArchivo.cpp' sea el nombre exacto de tu archivo C++
-      # Si tienes varios .cpp, puedes usar *.cpp
+    - name: Compile
+      # Asegúrate de cambiar 'TuArchivo.cpp' por el nombre REAL de tu archivo
+      # Si tienes más de uno, usa *.cpp
       run: |
         cl /LD /EHsc /O2 /I. /Fe:chams.dll TuArchivo.cpp
 
