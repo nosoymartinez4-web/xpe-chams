@@ -21,7 +21,7 @@ jobs:
       # Asegúrate de cambiar 'TuArchivo.cpp' por el nombre REAL de tu archivo
       # Si tienes más de uno, usa *.cpp
       run: |
-        cl /LD /EHsc /O2 /I. /Fe:chams.dll xpe_chams.cpp
+        cl /LD /EHsc /O2 /I. /Fe:chams.dll xpe_chams.cpp opengl32.lib glu32.lib
 
     - name: Upload DLL
       uses: actions/upload-artifact@v4
