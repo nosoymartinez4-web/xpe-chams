@@ -1,4 +1,3 @@
-Copiar
 // XPE_Chams.cpp
 #include <windows.h>
 #include <GL/gl.h>
@@ -29,8 +28,8 @@ void APIENTRY HookedDrawElements(GLenum mode, GLsizei count, GLenum type, const 
     if (bIsEnemy || bForceDraw)
     {
         // Guardamos estado actual
-        GLint oldColor[4];
-        glGetIntegerv(GL_CURRENT_COLOR, oldColor);
+        GLfloat oldColor[4];
+        glGetFloatv(GL_CURRENT_COLOR, oldColor);
         GLint oldDepthFunc;
         glGetIntegerv(GL_DEPTH_FUNC, &oldDepthFunc);
         GLboolean oldDepthMask;
@@ -81,4 +80,4 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
         // MessageBox(NULL, "XPE_Chams Inyectado", "OK", MB_OK);
     }
     return TRUE;
-} 
+}
