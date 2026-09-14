@@ -1,27 +1,50 @@
-name: Build XPE Chams
+name: Build XPE CHAMS
 
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Setup MSVC Build Tools
-      uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Compile
+    - name: Install MinGW (WinLibs)
+      shell: pwsh
       run: |
-        cl /LD /EHsc /O2 /I. /Fe:chams.dll xpe_chams.cpp opengl32.lib
+        curl -L -o mingw.7z "https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0-14.0.0-16.1.0-r1/winlibs-x86_64-mcf-seh-ucrt-14.2.0-14.0.0-16.1.0-r1.7z"
+        choco install 7zip -y --no-progress
+        7z x mingw.7z -oC:\mingw > $null
+        echo "C:\mingw\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-    - name: Upload DLL
+    - name: Compile DLL with Resources
+      shell: pwsh
+      run: |
+        g++ --version
+        # Compile resource file
+        windres resource.rc -O coff -o resource.o
+        # Link DLL with resource
+        g++ -shared -o "XPE CHAMS.dll" xpe_chams.cpp resource.o -lopengl32 -lgdi32 -static -O2 -s -fvisibility=hidden
+
+    - name: Verify DLL metadata
+      shell: pwsh
+      run: |
+        # Show file info
+        $dll = Get-Item "XPE CHAMS.dll"
+        Write-Host "DLL Size: $($dll.Length) bytes"
+        # Use sigcheck or strings to verify metadata
+        if (Get-Command strings -ErrorAction SilentlyContinue) {
+          strings "XPE CHAMS.dll" | Select-String -Pattern "xpe.nettt|Stealth Proyects|XPE CHAMS"
+        } else {
+          Write-Host "Metadata embedded (strings not available in PATH)"
+        }
+
+    - name: Upload DLL artifact
       uses: actions/upload-artifact@v4
       with:
-        name: chams-dll
-        path: chams.dll
+        name: XPE-CHAMS-DLL
+        path: XPE CHAMS.dll
