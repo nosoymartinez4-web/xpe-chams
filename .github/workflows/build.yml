@@ -14,14 +14,15 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Setup MSVC Build Tools
-      # Esta acción configura el PATH para que 'cl' esté disponible
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Compile
-      # Asegúrate de cambiar 'TuArchivo.cpp' por el nombre REAL de tu archivo
-      # Si tienes más de uno, usa *.cpp
+    - name: Install Detours
       run: |
-        cl /LD /EHsc /O2 /I. /Fe:chams.dll xpe_chams.cpp
+        choco install -y detours
+
+    - name: Compile
+      run: |
+        cl /LD /EHsc /O2 /I. /Fe:chams.dll xpe_chams.cpp opengl32.lib detours.lib
 
     - name: Upload DLL
       uses: actions/upload-artifact@v4
