@@ -1,32 +1,30 @@
 // XPE_Chams.cpp
 #include <windows.h>
 #include <GL/gl.h>
-#include <detours.h>
+#include <cstring>
 
-#pragma comment(lib, "detours.lib")
 #pragma comment(lib, "opengl32.lib")
 
-// Función original de OpenGL
+// Typedef para la función original
 typedef void(APIENTRY *PFNGLDRAWELEMENTS)(GLenum mode, GLsizei count, GLenum type, const void *indices);
 
-// Puntero a la función original
+// Variables globales
 PFNGLDRAWELEMENTS OriginalDrawElements = nullptr;
+unsigned char OriginalCode[20];
+bool bHooked = false;
 
 // Configuración de colores
-const float EnemyColor[4] = { 1.0f, 0.0f, 0.0f, 1.0f }; // Rojo Sólido (Atraviesa paredes)
-const float AllyColor[4]  = { 0.0f, 0.0f, 1.0f, 0.5f }; // Azul Transparente
+const float EnemyColor[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+const float AllyColor[4]  = { 0.0f, 0.0f, 1.0f, 0.5f };
 
-// Variables globales de estado
-BOOL bIsEnemy = FALSE;
-BOOL bForceDraw = FALSE;
+BOOL bIsEnemy = TRUE;
+BOOL bForceDraw = TRUE;
 
-// La función HOOK que se llamará en lugar de la original
+// Función Hook
 void APIENTRY HookedDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices)
 {
-    // Si es un enemigo, aplicamos el color rojo y desactivamos profundidad
     if (bIsEnemy || bForceDraw)
     {
-        // Guardamos estado actual
         GLfloat oldColor[4];
         glGetFloatv(GL_CURRENT_COLOR, oldColor);
         GLint oldDepthFunc;
@@ -36,16 +34,12 @@ void APIENTRY HookedDrawElements(GLenum mode, GLsizei count, GLenum type, const 
         GLboolean oldDepthTest;
         glGetBooleanv(GL_DEPTH_TEST, &oldDepthTest);
 
-        // Aplicamos Color Rojo Sólido
         glColor4fv(EnemyColor);
-
-        // ATRAVIESA PAREDES: Desactivamos la prueba de profundidad
         glDisable(GL_DEPTH_TEST);
 
-        // Llamamos a la función ORIGINAL (Trampoline)
+        // Llamar a la función original
         OriginalDrawElements(mode, count, type, indices);
 
-        // Restauramos estado
         glEnable(GL_DEPTH_TEST);
         glColor4fv(oldColor);
         glDepthFunc((GLenum)oldDepthFunc);
@@ -55,47 +49,57 @@ void APIENTRY HookedDrawElements(GLenum mode, GLsizei count, GLenum type, const 
     }
     else
     {
-        // Dibujado normal
         OriginalDrawElements(mode, count, type, indices);
     }
+}
+
+// Hook inline simple para x64
+void InstallHook()
+{
+    HMODULE hGL = GetModuleHandleA("opengl32.dll");
+    if (!hGL) return;
+
+    PFNGLDRAWELEMENTS pOriginal = (PFNGLDRAWELEMENTS)GetProcAddress(hGL, "glDrawElements");
+    if (!pOriginal) return;
+
+    // Guardar función original
+    OriginalDrawElements = pOriginal;
+
+    // Cambiar protección de memoria
+    DWORD oldProtect;
+    VirtualProtect(pOriginal, 20, PAGE_EXECUTE_READWRITE, &oldProtect);
+
+    // Guardar código original
+    memcpy(OriginalCode, pOriginal, 14);
+
+    // Crear JMP a nuestra función hook
+    unsigned char* pCode = (unsigned char*)pOriginal;
+
+    // mov rax, HookedDrawElements (48 B8)
+    pCode[0] = 0x48;
+    pCode[1] = 0xB8;
+    *(PFNGLDRAWELEMENTS*)(pCode + 2) = HookedDrawElements;
+
+    // jmp rax (FF E0)
+    pCode[10] = 0xFF;
+    pCode[11] = 0xE0;
+
+    // Rellenar con NOPs
+    for (int i = 12; i < 20; i++)
+        pCode[i] = 0x90;
+
+    // Restaurar protección
+    VirtualProtect(pOriginal, 20, oldProtect, &oldProtect);
+    FlushInstructionCache(GetCurrentProcess(), pOriginal, 20);
+
+    bHooked = true;
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH)
     {
-        // Obtener la dirección de opengl32.dll
-        HMODULE hGL = GetModuleHandleA("opengl32.dll");
-        if (hGL)
-        {
-            // Obtener la función original
-            OriginalDrawElements = (PFNGLDRAWELEMENTS)GetProcAddress(hGL, "glDrawElements");
-
-            if (OriginalDrawElements)
-            {
-                // Iniciar la transacción de Detours
-                DetourTransactionBegin();
-                DetourUpdateThread(GetCurrentThread());
-
-                // Hacer el hook real
-                DetourAttach(&(LPVOID&)OriginalDrawElements, HookedDrawElements);
-
-                // Confirmar la transacción
-                DetourTransactionCommit();
-            }
-        }
+        InstallHook();
     }
-    else if (ul_reason_for_call == DLL_PROCESS_DETACH)
-    {
-        if (OriginalDrawElements)
-        {
-            // Remover el hook al descargar la DLL
-            DetourTransactionBegin();
-            DetourUpdateThread(GetCurrentThread());
-            DetourDetach(&(LPVOID&)OriginalDrawElements, HookedDrawElements);
-            DetourTransactionCommit();
-        }
-    }
-
     return TRUE;
 }
