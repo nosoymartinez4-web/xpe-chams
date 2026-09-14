@@ -16,13 +16,9 @@ jobs:
     - name: Setup MSVC Build Tools
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Install Detours
-      run: |
-        choco install -y detours
-
     - name: Compile
       run: |
-        cl /LD /EHsc /O2 /I. /Fe:chams.dll xpe_chams.cpp opengl32.lib detours.lib
+        cl /LD /EHsc /O2 /I. /Fe:chams.dll xpe_chams.cpp opengl32.lib
 
     - name: Upload DLL
       uses: actions/upload-artifact@v4
