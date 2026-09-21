@@ -15,8 +15,9 @@
     { "src": "/api/seller", "dest": "/api/seller.js" },
     { "src": "/api/generate", "dest": "/api/generate.js" },
     { "src": "/api/revoke", "dest": "/api/revoke.js" },
-    { "src": "/manifest.json", "dest": "/api/manifest.json" },
-    { "src": "/sw.js", "dest": "/api/sw.js" },
+    { "src": "/api/prices", "dest": "/api/prices.js" },
+    { "src": "/api/manifest.json", "dest": "/api/manifest.json" },
+    { "src": "/api/sw.js", "dest": "/api/sw.js" },
     { "src": "/(.*)", "dest": "/api/$1" }
   ]
 }

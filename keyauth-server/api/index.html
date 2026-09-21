@@ -8,28 +8,30 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="XPE KeyAuth">
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/xpenettt/xpe-keyauth/main/icon-192.png">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0a0a'/><path d='M50 15 C30 15 18 30 18 50 C18 70 30 85 50 85 C70 85 82 70 82 50 C82 30 70 15 50 15 Z M50 28 C58 28 65 38 65 50 C65 62 58 72 50 72 C42 72 35 62 35 50 C35 38 42 28 50 28 Z' fill='%23cc0000'/><circle cx='40' cy='46' r='4' fill='%23cc0000'/><circle cx='60' cy='46' r='4' fill='%23cc0000'/><path d='M40 64 Q50 74 60 64' fill='none' stroke='%23cc0000' stroke-width='3' stroke-linecap='round'/></svg>">
     <title>XPE KeyAuth - by xpe.nettt</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap');
-        
+
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+
         :root {
             --bg: #0a0a0a;
-            --surface: #111111;
-            --surface2: #1a1a1a;
-            --border: #2a0000;
+            --surface: #0f0f0f;
+            --surface2: #161616;
+            --border: #220000;
             --primary: #cc0000;
             --primary-dark: #990000;
-            --primary-glow: rgba(204, 0, 0, 0.4);
+            --primary-glow: rgba(204, 0, 0, 0.35);
             --text: #e0e0e0;
-            --text-muted: #888888;
+            --text-muted: #777;
             --success: #00cc44;
             --warning: #ffaa00;
             --danger: #ff2244;
         }
-        
+
+        html { scroll-behavior: smooth; }
+
         body {
             font-family: 'Rajdhani', sans-serif;
             background: var(--bg);
@@ -37,20 +39,24 @@
             min-height: 100vh;
             overflow-x: hidden;
         }
-        
-        /* Ghost background */
+
+        /* Ghost background - full blurred image */
         #ghost-bg {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
             z-index: 0;
-            opacity: 0.06;
             pointer-events: none;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><path d="M200 50 C100 50 50 120 50 200 C50 300 120 350 200 350 C280 350 350 300 350 200 C350 120 300 50 200 50 Z M200 100 C250 100 280 140 280 200 C280 260 250 300 200 300 C150 300 120 260 120 200 C120 140 150 100 200 100 Z" fill="%23cc0000"/><circle cx="160" cy="180" r="12" fill="%23cc0000"/><circle cx="240" cy="180" r="12" fill="%23cc0000"/><path d="M160 230 Q200 270 240 230" fill="none" stroke="%23cc0000" stroke-width="6" stroke-linecap="round"/></svg>');
+            background:
+                radial-gradient(ellipse at 30% 20%, rgba(204,0,0,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(204,0,0,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(10,10,10,0.95) 0%, #0a0a0a 100%),
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><defs><filter id="b"><feGaussianBlur stdDeviation="4"/></filter></defs><g filter="url(%23b)"><path d="M200 40 C100 40 40 110 40 200 C40 300 110 360 200 360 C290 360 360 300 360 200 C360 110 300 40 200 40 Z M200 90 C260 90 310 140 310 200 C310 260 260 310 200 310 C140 310 90 260 90 200 C90 140 140 90 200 90 Z" fill="%23cc0000" opacity="0.15"/><circle cx="150" cy="175" r="18" fill="%23cc0000" opacity="0.2"/><circle cx="250" cy="175" r="18" fill="%23cc0000" opacity="0.2"/><path d="M150 240 Q200 290 250 240" fill="none" stroke="%23cc0000" stroke-width="10" stroke-linecap="round" opacity="0.15"/><circle cx="200" cy="200" r="120" fill="none" stroke="%23cc0000" stroke-width="2" opacity="0.08"/></g></svg>');
             background-repeat: repeat;
-            background-size: 200px 200px;
+            background-size: 300px 300px, 300px 300px, 100% 100%, 300px 300px;
+            filter: blur(1px);
         }
-        
+
         /* Particles canvas */
         #particles-canvas {
             position: fixed;
@@ -59,115 +65,150 @@
             z-index: 1;
             pointer-events: none;
         }
-        
+
         /* Main container */
         .container {
             position: relative;
             z-index: 2;
-            max-width: 420px;
+            max-width: 460px;
             margin: 0 auto;
-            padding: 20px 16px;
+            padding: 16px;
             min-height: 100vh;
         }
-        
+
         /* Header */
         .header {
             text-align: center;
-            padding: 30px 0 20px;
+            padding: 24px 0 16px;
         }
-        
-        .logo {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 12px;
-            border: 2px solid var(--primary);
+
+        .logo-wrap {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 14px;
+            position: relative;
+        }
+
+        .logo-wrap::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
             border-radius: 50%;
+            border: 2px solid var(--primary);
+            opacity: 0.3;
+            animation: rotate-glow 4s linear infinite;
+        }
+
+        @keyframes rotate-glow {
+            0% { transform: rotate(0deg); opacity: 0.3; }
+            50% { opacity: 0.6; }
+            100% { transform: rotate(360deg); opacity: 0.3; }
+        }
+
+        .logo {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: var(--surface);
+            border: 2px solid var(--primary);
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--surface);
-            box-shadow: 0 0 30px var(--primary-glow);
-            animation: pulse-glow 2s ease-in-out infinite;
+            box-shadow: 0 0 40px var(--primary-glow), inset 0 0 30px rgba(204,0,0,0.1);
+            animation: pulse-glow 3s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .logo::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(204,0,0,0.15), transparent);
+        }
+
         @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
-            50% { box-shadow: 0 0 40px var(--primary-glow), 0 0 60px rgba(204,0,0,0.2); }
+            0%, 100% { box-shadow: 0 0 30px var(--primary-glow); }
+            50% { box-shadow: 0 0 50px var(--primary-glow), 0 0 70px rgba(204,0,0,0.15); }
         }
-        
+
         .logo svg {
-            width: 45px;
-            height: 45px;
+            width: 50px;
+            height: 50px;
             fill: var(--primary);
+            z-index: 1;
         }
-        
+
         .header h1 {
             font-family: 'Orbitron', monospace;
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 900;
             color: var(--primary);
             text-transform: uppercase;
-            letter-spacing: 4px;
-            text-shadow: 0 0 20px var(--primary-glow);
+            letter-spacing: 5px;
+            text-shadow: 0 0 30px var(--primary-glow);
         }
-        
+
         .header .subtitle {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-muted);
-            margin-top: 4px;
-            letter-spacing: 2px;
+            margin-top: 2px;
+            letter-spacing: 3px;
         }
-        
-        .header .subtitle span {
-            color: var(--primary);
-        }
-        
-        /* Cards */
+
+        .header .subtitle span { color: var(--primary); }
+
+        /* Card */
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 24px 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            margin-bottom: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
         }
-        
+
         .card-title {
             font-family: 'Orbitron', monospace;
-            font-size: 14px;
+            font-size: 13px;
             color: var(--primary);
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-bottom: 16px;
+            margin-bottom: 18px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
-        
+
         .card-title::before {
             content: '';
             width: 3px;
-            height: 16px;
+            height: 18px;
             background: var(--primary);
             border-radius: 2px;
+            box-shadow: 0 0 8px var(--primary-glow);
         }
-        
+
         /* Forms */
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
-        
+
         .form-group label {
             display: block;
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-muted);
-            margin-bottom: 6px;
+            margin-bottom: 5px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            font-weight: 600;
         }
-        
+
         .form-group input,
-        .form-group select {
+        .form-group select,
+        .form-group textarea {
             width: 100%;
             padding: 12px 16px;
             background: var(--surface2);
@@ -179,26 +220,19 @@
             outline: none;
             transition: border-color 0.3s, box-shadow 0.3s;
         }
-        
+
         .form-group input:focus,
-        .form-group select:focus {
+        .form-group select:focus,
+        .form-group textarea:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 15px rgba(204,0,0,0.2);
+            box-shadow: 0 0 18px rgba(204,0,0,0.15);
         }
-        
-        .form-group input::placeholder {
-            color: #444;
-        }
-        
-        select {
-            cursor: pointer;
-        }
-        
-        select option {
-            background: var(--surface);
-            color: var(--text);
-        }
-        
+
+        .form-group input::placeholder { color: #444; }
+
+        select { cursor: pointer; }
+        select option { background: var(--surface); color: var(--text); }
+
         /* Buttons */
         .btn {
             width: 100%;
@@ -206,7 +240,7 @@
             border: none;
             border-radius: 8px;
             font-family: 'Orbitron', monospace;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 2px;
@@ -215,95 +249,100 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .btn-primary {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            box-shadow: 0 4px 15px rgba(204,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(204,0,0,0.3);
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(204,0,0,0.5);
+            box-shadow: 0 8px 30px rgba(204,0,0,0.5);
         }
-        
-        .btn-primary:active {
-            transform: translateY(0);
-        }
-        
+
+        .btn-primary:active { transform: translateY(0); }
+
         .btn-secondary {
             background: transparent;
             color: var(--primary);
             border: 1px solid var(--primary);
         }
-        
-        .btn-secondary:hover {
-            background: rgba(204,0,0,0.1);
-        }
-        
+
+        .btn-secondary:hover { background: rgba(204,0,0,0.1); }
+
         .btn-danger {
             background: var(--danger);
             color: white;
         }
-        
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 11px;
-            width: auto;
-        }
-        
+
+        .btn-sm { padding: 8px 14px; font-size: 10px; width: auto; display: inline-block; }
+
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none !important;
         }
-        
+
+        .btn .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         /* Messages */
         .message {
             padding: 12px 16px;
             border-radius: 8px;
             font-size: 14px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             display: none;
         }
-        
+
         .message.error {
             display: block;
-            background: rgba(255, 34, 68, 0.15);
-            border: 1px solid rgba(255, 34, 68, 0.3);
+            background: rgba(255,34,68,0.15);
+            border: 1px solid rgba(255,34,68,0.3);
             color: var(--danger);
         }
-        
+
         .message.success {
             display: block;
-            background: rgba(0, 204, 68, 0.15);
-            border: 1px solid rgba(0, 204, 68, 0.3);
+            background: rgba(0,204,68,0.15);
+            border: 1px solid rgba(0,204,68,0.3);
             color: var(--success);
         }
-        
+
         .message.info {
             display: block;
-            background: rgba(204, 0, 0, 0.1);
+            background: rgba(204,0,0,0.08);
             border: 1px solid var(--border);
             color: var(--text);
         }
-        
+
         /* Tabs */
         .tabs {
             display: flex;
             gap: 4px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             background: var(--surface2);
             border-radius: 10px;
             padding: 4px;
         }
-        
+
         .tab {
             flex: 1;
             padding: 10px;
             text-align: center;
             font-family: 'Orbitron', monospace;
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-muted);
@@ -313,21 +352,16 @@
             border: none;
             background: transparent;
         }
-        
+
         .tab.active {
             background: var(--primary);
             color: white;
-            box-shadow: 0 2px 10px rgba(204,0,0,0.3);
+            box-shadow: 0 2px 12px rgba(204,0,0,0.3);
         }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
         /* License key display */
         .key-display {
             background: var(--bg);
@@ -335,239 +369,299 @@
             border-radius: 8px;
             padding: 16px;
             font-family: 'Orbitron', monospace;
-            font-size: 14px;
+            font-size: 13px;
             color: var(--primary);
             text-align: center;
             letter-spacing: 2px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             word-break: break-all;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            box-shadow: inset 0 2px 12px rgba(0,0,0,0.5);
         }
-        
+
         .key-display .label {
             font-family: 'Rajdhani', sans-serif;
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
-        
+
+        /* Price cards */
+        .price-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .price-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 10px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .price-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(204,0,0,0.1);
+        }
+
+        .price-card.selected {
+            border-color: var(--primary);
+            background: rgba(204,0,0,0.08);
+            box-shadow: 0 0 20px rgba(204,0,0,0.2);
+        }
+
+        .price-card .duration {
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+
+        .price-card .price-rd {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 4px 0;
+        }
+
+        .price-card .price-rd::before { content: 'RD$'; font-size: 12px; color: var(--text-muted); }
+
+        .price-card .price-usd {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .price-card .price-usd::before { content: '$'; }
+
+        .price-card .badge-hour {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 8px;
+            background: rgba(204,0,0,0.15);
+            border-radius: 4px;
+            font-size: 9px;
+            color: var(--primary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
         /* License table */
         .license-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
+            font-size: 12px;
         }
-        
+
         .license-table th {
             text-align: left;
             padding: 8px 4px;
             color: var(--text-muted);
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
             border-bottom: 1px solid var(--border);
         }
-        
+
         .license-table td {
-            padding: 10px 4px;
-            border-bottom: 1px solid rgba(42, 0, 0, 0.3);
+            padding: 8px 4px;
+            border-bottom: 1px solid rgba(34,0,0,0.3);
         }
-        
-        .license-table tr:last-child td {
-            border-bottom: none;
-        }
-        
+
+        .license-table tr:last-child td { border-bottom: none; }
+
         .badge {
             display: inline-block;
             padding: 2px 8px;
             border-radius: 4px;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        
-        .badge-active {
-            background: rgba(0, 204, 68, 0.2);
-            color: var(--success);
-        }
-        
-        .badge-revoked {
-            background: rgba(255, 34, 68, 0.2);
-            color: var(--danger);
-        }
-        
-        .badge-expired {
-            background: rgba(255, 170, 0, 0.2);
-            color: var(--warning);
-        }
-        
+
+        .badge-active { background: rgba(0,204,68,0.2); color: var(--success); }
+        .badge-revoked { background: rgba(255,34,68,0.2); color: var(--danger); }
+        .badge-expired { background: rgba(255,170,0,0.2); color: var(--warning); }
+
         /* Stats */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 16px;
+            gap: 6px;
+            margin-bottom: 14px;
         }
-        
+
         .stat-card {
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 12px;
+            padding: 10px;
             text-align: center;
         }
-        
+
         .stat-card .number {
             font-family: 'Orbitron', monospace;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 900;
             color: var(--primary);
         }
-        
+
         .stat-card .label {
-            font-size: 10px;
+            font-size: 9px;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-top: 4px;
+            margin-top: 2px;
         }
-        
+
         /* Install prompt */
         .install-prompt {
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 16px;
+            padding: 14px;
+            margin-bottom: 14px;
             display: none;
             text-align: center;
         }
-        
-        .install-prompt.show {
-            display: block;
-        }
-        
-        .install-prompt p {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-        }
-        
-        .install-prompt .btn {
-            max-width: 200px;
-            margin: 0 auto;
-        }
-        
-        /* Contact */
-        .contact-bar {
+
+        .install-prompt.show { display: block; }
+        .install-prompt p { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+        .install-prompt .btn { max-width: 200px; margin: 0 auto; }
+
+        /* Bottom bar */
+        .bottom-bar {
             text-align: center;
-            padding: 20px 0;
+            padding: 16px 0;
             border-top: 1px solid var(--border);
-            margin-top: 20px;
+            margin-top: 14px;
         }
-        
-        .contact-bar p {
-            font-size: 12px;
+
+        .bottom-bar p {
+            font-size: 11px;
             color: var(--text-muted);
+            margin-bottom: 6px;
         }
-        
-        .contact-bar .whatsapp {
-            color: var(--primary);
-            font-size: 16px;
-            font-weight: 700;
-            text-decoration: none;
-            display: inline-block;
-            margin-top: 4px;
-            padding: 8px 20px;
-            border: 1px solid var(--primary);
+
+        .bottom-bar .contact-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .bottom-bar .contact-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border: 1px solid var(--border);
             border-radius: 6px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
             transition: all 0.3s;
         }
-        
-        .contact-bar .whatsapp:hover {
-            background: rgba(204,0,0,0.1);
+
+        .bottom-bar .contact-link:hover {
+            border-color: var(--primary);
+            background: rgba(204,0,0,0.08);
         }
-        
+
+        .bottom-bar .contact-link.whatsapp { border-color: var(--primary); color: var(--primary); }
+        .bottom-bar .contact-link.discord { border-color: #5865F2; color: #5865F2; }
+        .bottom-bar .contact-link.discord:hover { background: rgba(88,101,242,0.1); }
+
         /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        /* Seller section */
+        .seller-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
         }
-        ::-webkit-scrollbar-track {
-            background: var(--bg);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 3px;
-        }
-        
-        /* Loading spinner */
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
+
+        .seller-form .full-width { grid-column: 1 / -1; }
+
         /* Responsive */
         @media (max-width: 480px) {
-            .container { padding: 12px; }
-            .header h1 { font-size: 20px; }
+            .container { padding: 10px; }
+            .header h1 { font-size: 20px; letter-spacing: 3px; }
             .card { padding: 16px; }
+            .price-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+            .price-card { padding: 10px 8px; }
+            .price-card .price-rd { font-size: 16px; }
             .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
             .stat-card .number { font-size: 18px; }
+        }
+
+        @media (min-width: 768px) {
+            .price-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
     <!-- Ghost background -->
     <div id="ghost-bg"></div>
-    
+
     <!-- Particles canvas -->
     <canvas id="particles-canvas"></canvas>
-    
+
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="logo">
-                <svg viewBox="0 0 100 100">
-                    <path d="M50 10 C30 10 15 30 15 50 C15 70 30 90 50 90 C70 90 85 70 85 50 C85 30 70 10 50 10 Z M50 25 C60 25 68 35 68 50 C68 65 60 75 50 75 C40 75 32 65 32 50 C32 35 40 25 50 25 Z"/>
-                    <circle cx="38" cy="45" r="5"/>
-                    <circle cx="62" cy="45" r="5"/>
-                    <path d="M38 65 Q50 78 62 65" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
-                </svg>
+            <div class="logo-wrap">
+                <div class="logo">
+                    <svg viewBox="0 0 100 100">
+                        <path d="M50 10 C30 10 15 30 15 50 C15 70 30 90 50 90 C70 90 85 70 85 50 C85 30 70 10 50 10 Z M50 25 C60 25 68 35 68 50 C68 65 60 75 50 75 C40 75 32 65 32 50 C32 35 40 25 50 25 Z"/>
+                        <circle cx="38" cy="45" r="5"/>
+                        <circle cx="62" cy="45" r="5"/>
+                        <path d="M38 65 Q50 78 62 65" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
+                    </svg>
+                </div>
             </div>
             <h1>XPE KeyAuth</h1>
-            <p class="subtitle">by <span>xpe.nettt</span> &bull; Stealth Proyects</p>
+            <p class="subtitle">by <span>xpe.nettt</span> · Stealth Proyects</p>
         </div>
-        
+
         <!-- Install prompt -->
         <div class="install-prompt" id="installPrompt">
-            <p>📱 Agrega XPE KeyAuth a tu pantalla de inicio para acceso rápido</p>
-            <button class="btn btn-primary btn-sm" id="installBtn">Agregar a Inicio</button>
+            <p>📱 Agrega XPE KeyAuth a tu pantalla de inicio</p>
+            <button class="btn btn-primary btn-sm" id="installBtn">Agregar</button>
         </div>
-        
+
         <!-- Message -->
         <div id="message" class="message"></div>
-        
+
         <!-- Tabs -->
         <div class="tabs">
             <button class="tab active" data-tab="login">Login</button>
-            <button class="tab" data-tab="dashboard" disabled>Dashboard</button>
+            <button class="tab" data-tab="prices">Precios</button>
+            <button class="tab" data-tab="dashboard" disabled>Admin</button>
         </div>
-        
+
         <!-- Login Tab -->
         <div class="tab-content active" id="tab-login">
             <div class="card">
@@ -579,22 +673,110 @@
                     </div>
                     <div class="form-group">
                         <label>Contraseña</label>
-                        <input type="password" id="loginPass" placeholder="Tu contraseña" required autocomplete="current-password">
+                        <input type="password" id="loginPass" placeholder="••••••••" required autocomplete="current-password">
                     </div>
                     <button type="submit" class="btn btn-primary" id="loginBtn">
-                        <span id="loginBtnText">INGRESAR</span>
                         <span class="spinner" id="loginSpinner" style="display:none"></span>
+                        <span id="loginBtnText">INGRESAR</span>
                     </button>
                 </form>
-                <div style="margin-top:16px; text-align:center; font-size:12px; color:var(--text-muted);">
-                    ¿Necesitas una licencia?<br>
-                    <a href="https://wa.me/18496393107" target="_blank" style="color:var(--primary); text-decoration:none; font-weight:600;">
-                        Contactar vendedor → 849 639 3107
+            </div>
+
+            <!-- Need license? -->
+            <div class="card" style="text-align:center; padding:16px;">
+                <p style="font-size:14px; color:var(--text-muted); margin-bottom:12px;">
+                    ¿Necesitas una licencia?
+                </p>
+                <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                    <a href="https://wa.me/18496393107" target="_blank" class="btn btn-primary btn-sm" style="width:auto; text-decoration:none; padding:10px 20px;">
+                        💬 WhatsApp 849 639 3107
+                    </a>
+                    <a href="https://discord.gg/My6QkneU6j" target="_blank" class="btn btn-secondary btn-sm" style="width:auto; text-decoration:none; padding:10px 20px;">
+                        🎮 Discord
                     </a>
                 </div>
             </div>
         </div>
-        
+
+        <!-- Prices Tab -->
+        <div class="tab-content" id="tab-prices">
+            <div class="card">
+                <div class="card-title">Precios de Licencias</div>
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+                    Precios en RD$ (Pesos Dominicanos) y USD
+                </p>
+                <div class="price-grid" id="priceGrid">
+                    <div class="price-card" data-key="1h" data-days="0.042">
+                        <div class="duration">1 HORA</div>
+                        <div class="price-rd">50</div>
+                        <div class="price-usd">0.85</div>
+                        <div class="badge-hour">⌛ Prueba</div>
+                    </div>
+                    <div class="price-card" data-key="3h" data-days="0.125">
+                        <div class="duration">3 HORAS</div>
+                        <div class="price-rd">100</div>
+                        <div class="price-usd">1.70</div>
+                    </div>
+                    <div class="price-card" data-key="6h" data-days="0.25">
+                        <div class="duration">6 HORAS</div>
+                        <div class="price-rd">150</div>
+                        <div class="price-usd">2.55</div>
+                    </div>
+                    <div class="price-card" data-key="12h" data-days="0.5">
+                        <div class="duration">12 HORAS</div>
+                        <div class="price-rd">200</div>
+                        <div class="price-usd">3.40</div>
+                    </div>
+                    <div class="price-card" data-key="1d" data-days="1">
+                        <div class="duration">1 DÍA</div>
+                        <div class="price-rd">300</div>
+                        <div class="price-usd">5.00</div>
+                    </div>
+                    <div class="price-card" data-key="3d" data-days="3">
+                        <div class="duration">3 DÍAS</div>
+                        <div class="price-rd">500</div>
+                        <div class="price-usd">8.50</div>
+                    </div>
+                    <div class="price-card" data-key="7d" data-days="7">
+                        <div class="duration">7 DÍAS</div>
+                        <div class="price-rd">700</div>
+                        <div class="price-usd">12.00</div>
+                    </div>
+                    <div class="price-card" data-key="15d" data-days="15">
+                        <div class="duration">15 DÍAS</div>
+                        <div class="price-rd">1,000</div>
+                        <div class="price-usd">17.00</div>
+                    </div>
+                    <div class="price-card" data-key="30d" data-days="30">
+                        <div class="duration">30 DÍAS</div>
+                        <div class="price-rd">1,500</div>
+                        <div class="price-usd">25.00</div>
+                    </div>
+                    <div class="price-card" data-key="90d" data-days="90">
+                        <div class="duration">90 DÍAS</div>
+                        <div class="price-rd">3,000</div>
+                        <div class="price-usd">50.00</div>
+                    </div>
+                    <div class="price-card" data-key="lifetime" data-days="9999" style="grid-column:span 2;">
+                        <div class="duration">♾️ VITALICIA</div>
+                        <div class="price-rd">5,000</div>
+                        <div class="price-usd">85.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="text-align:center; padding:16px;">
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">
+                    💳 Paga vía transferencia, efectivo o PayPal
+                </p>
+                <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                    <a href="https://wa.me/18496393107?text=Quiero%20comprar%20una%20licencia%20XPE" target="_blank" class="btn btn-primary btn-sm" style="width:auto; text-decoration:none; padding:10px 20px;">
+                        💬 Comprar por WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <!-- Dashboard Tab -->
         <div class="tab-content" id="tab-dashboard">
             <!-- Stats -->
@@ -612,48 +794,76 @@
                     <div class="label">Vencidas</div>
                 </div>
             </div>
-            
+
             <!-- Generate License -->
             <div class="card">
                 <div class="card-title">Generar Licencia</div>
                 <form id="genForm">
                     <div class="form-group">
-                        <label>Cliente (opcional)</label>
-                        <input type="text" id="genCustomer" placeholder="Nombre del cliente">
+                        <label>Cliente</label>
+                        <input type="text" id="genCustomer" placeholder="Nombre o alias del cliente">
                     </div>
                     <div class="form-group">
                         <label>Duración</label>
-                        <select id="genDuration">
-                            <option value="30">30 días</option>
-                            <option value="90">90 días</option>
-                            <option value="180">6 meses</option>
-                            <option value="365" selected>1 año</option>
-                            <option value="730">2 años</option>
-                            <option value="9999">Vitalicia</option>
-                        </select>
+                        <div style="display:flex; gap:8px;">
+                            <input type="number" id="genDurationQty" value="1" min="1" style="width:80px; text-align:center;">
+                            <select id="genDurationUnit" style="flex:1;">
+                                <option value="hours">Hora(s)</option>
+                                <option value="days" selected>Día(s)</option>
+                                <option value="months">Mes(es)</option>
+                                <option value="years">Año(s)</option>
+                                <option value="lifetime">Vitalicia</option>
+                            </select>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary" id="genBtn">
-                        <span id="genBtnText">GENERAR LICENCIA</span>
                         <span class="spinner" id="genSpinner" style="display:none"></span>
+                        <span id="genBtnText">GENERAR LICENCIA</span>
                     </button>
                 </form>
                 <div id="genResult" style="display:none; margin-top:16px;">
                     <div class="key-display">
-                        <span class="label">Licencia Generada</span>
-                        <span id="genKeyDisplay">XPE-XXXXXXXX-XXXX</span>
+                        <span class="label">✅ Licencia Generada</span>
+                        <span id="genKeyDisplay" style="font-size:15px;">XPE-XXXXXXXX-XXXX</span>
                     </div>
                     <div style="text-align:center; font-size:12px; color:var(--text-muted);">
-                        Vence: <span id="genExpiryDisplay" style="color:var(--primary);"></span>
+                        Vence: <span id="genExpiryDisplay" style="color:var(--primary); font-weight:600;"></span>
                         <br><br>
-                        <button class="btn btn-secondary btn-sm" onclick="copyKey()">Copiar Licencia</button>
+                        <button class="btn btn-secondary btn-sm" onclick="copyKey()" style="width:auto;">📋 Copiar</button>
                     </div>
                 </div>
             </div>
-            
+
+            <!-- Seller Management -->
+            <div class="card" id="sellerSection" style="display:none;">
+                <div class="card-title">Vendedores</div>
+                <form id="sellerForm" class="seller-form">
+                    <div class="form-group full-width">
+                        <label>Vendedor</label>
+                        <input type="text" id="sellerName" placeholder="Usuario del vendedor">
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="text" id="sellerPass" placeholder="••••••">
+                    </div>
+                    <div class="form-group">
+                        <label>Acción</label>
+                        <select id="sellerAction">
+                            <option value="add">Agregar</option>
+                            <option value="remove">Eliminar</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary full-width" style="grid-column:span 2;">
+                        GUARDAR
+                    </button>
+                </form>
+                <div id="sellerList" style="margin-top:12px; font-size:12px; color:var(--text-muted);"></div>
+            </div>
+
             <!-- Licenses List -->
             <div class="card">
-                <div class="card-title">Licencias Activas</div>
-                <div style="max-height:300px; overflow-y:auto;">
+                <div class="card-title">Licencias Recientes</div>
+                <div style="max-height:280px; overflow-y:auto;">
                     <table class="license-table">
                         <thead>
                             <tr>
@@ -672,22 +882,22 @@
                     </table>
                 </div>
             </div>
-            
+
             <!-- Logout & Contact -->
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="btn btn-secondary" id="logoutBtn" style="flex:1;">CERRAR SESIÓN</button>
                 <a href="https://wa.me/18496393107" target="_blank" class="btn btn-primary" style="flex:1; text-decoration:none; text-align:center; line-height:14px;">
-                    WhatsApp 849 639 3107
+                    💬 WhatsApp
                 </a>
             </div>
-            
-            <div class="contact-bar">
-                <p>XPE CHAMS v2 &copy; 2017-2026 xpe.nettt &bull; Stealth Proyects</p>
-                <p style="font-size:10px; margin-top:4px;">Todos los derechos reservados</p>
+
+            <div class="bottom-bar">
+                <p>XPE CHAMS v2 · © 2017-2026 xpe.nettt · Stealth Proyects</p>
+                <p style="font-size:10px;">Todos los derechos reservados</p>
             </div>
         </div>
     </div>
-    
+
     <script>
         // ========================
         // PARTICLES
@@ -695,26 +905,23 @@
         const canvas = document.getElementById('particles-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
-        
+
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
-        
+
         class Particle {
-            constructor() {
-                this.reset();
-            }
+            constructor() { this.reset(); }
             reset() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 2 + 0.5;
-                this.speedX = (Math.random() - 0.5) * 0.5;
-                this.speedY = (Math.random() - 0.5) * 0.5;
-                this.opacity = Math.random() * 0.5 + 0.1;
-                this.hue = 0; // red
+                this.size = Math.random() * 2 + 0.3;
+                this.speedX = (Math.random() - 0.5) * 0.4;
+                this.speedY = (Math.random() - 0.5) * 0.4;
+                this.opacity = Math.random() * 0.4 + 0.05;
             }
             update() {
                 this.x += this.speedX;
@@ -729,29 +936,23 @@
                 ctx.fill();
             }
         }
-        
-        for (let i = 0; i < 80; i++) {
-            particles.push(new Particle());
-        }
-        
+
+        for (let i = 0; i < 60; i++) particles.push(new Particle());
+
         function animateParticles() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
-            // Draw connections
+            particles.forEach(p => { p.update(); p.draw(); });
             for (let i = 0; i < particles.length; i++) {
                 for (let j = i + 1; j < particles.length; j++) {
                     const dx = particles[i].x - particles[j].x;
                     const dy = particles[i].y - particles[j].y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 120) {
+                    if (dist < 100) {
                         ctx.beginPath();
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
-                        ctx.strokeStyle = `rgba(204, 0, 0, ${0.1 * (1 - dist/120)})`;
-                        ctx.lineWidth = 0.5;
+                        ctx.strokeStyle = `rgba(204, 0, 0, ${0.06 * (1 - dist/100)})`;
+                        ctx.lineWidth = 0.3;
                         ctx.stroke();
                     }
                 }
@@ -759,7 +960,7 @@
             requestAnimationFrame(animateParticles);
         }
         animateParticles();
-        
+
         // ========================
         // PWA INSTALL
         // ========================
@@ -769,28 +970,25 @@
             deferredPrompt = e;
             document.getElementById('installPrompt').classList.add('show');
         });
-        
+
         document.getElementById('installBtn').addEventListener('click', async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const result = await deferredPrompt.userChoice;
-                if (result.outcome === 'accepted') {
-                    document.getElementById('installPrompt').classList.remove('show');
-                }
+                if (result.outcome === 'accepted') document.getElementById('installPrompt').classList.remove('show');
                 deferredPrompt = null;
             }
         });
-        
-        // iOS detection for "Add to Home Screen"
+
         if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
             if (!window.navigator.standalone) {
                 document.getElementById('installPrompt').classList.add('show');
-                document.getElementById('installPrompt').querySelector('p').textContent = 
-                    '📱 Presiona "Compartir" y luego "Agregar a pantalla de inicio"';
+                document.getElementById('installPrompt').querySelector('p').textContent =
+                    '📱 Presiona "Compartir" → "Agregar a pantalla de inicio"';
                 document.getElementById('installBtn').style.display = 'none';
             }
         }
-        
+
         // ========================
         // APP STATE
         // ========================
@@ -799,20 +997,23 @@
             username: localStorage.getItem('xpe_username') || '',
             role: localStorage.getItem('xpe_role') || ''
         };
-        
+
         function showMessage(text, type) {
             const msg = document.getElementById('message');
             msg.textContent = text;
             msg.className = 'message ' + type;
             setTimeout(() => { msg.className = 'message'; }, 5000);
         }
-        
-        function setLoading(btnId, spinnerId, textId, loading) {
-            document.getElementById(btnId).disabled = loading;
-            document.getElementById(spinnerId).style.display = loading ? 'inline-block' : 'none';
-            document.getElementById(textId).style.display = loading ? 'none' : 'inline';
+
+        function setLoading(id, loading) {
+            const btn = document.getElementById(id);
+            btn.disabled = loading;
+            const spinner = btn.querySelector('.spinner');
+            const text = btn.querySelector('span:not(.spinner)');
+            if (spinner) spinner.style.display = loading ? 'inline-block' : 'none';
+            if (text) text.style.display = loading ? 'none' : 'inline';
         }
-        
+
         // ========================
         // TABS
         // ========================
@@ -824,7 +1025,29 @@
                 document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
             });
         });
-        
+
+        // ========================
+        // PRICE SELECTOR
+        // ========================
+        document.querySelectorAll('.price-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.price-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                const days = parseFloat(card.dataset.days);
+                if (days <= 1) {
+                    document.getElementById('genDurationQty').value = days < 1 ? Math.round(days * 24) : 1;
+                    document.getElementById('genDurationUnit').value = days < 1 ? 'hours' : 'days';
+                } else {
+                    document.getElementById('genDurationQty').value = days;
+                    document.getElementById('genDurationUnit').value = 'days';
+                }
+                // Switch to admin tab if logged in
+                if (appState.token) {
+                    document.querySelector('.tab[data-tab="dashboard"]').click();
+                }
+            });
+        });
+
         // ========================
         // LOGIN
         // ========================
@@ -832,14 +1055,14 @@
             e.preventDefault();
             const username = document.getElementById('loginUser').value.trim();
             const password = document.getElementById('loginPass').value.trim();
-            
+
             if (!username || !password) {
                 showMessage('Completa todos los campos', 'error');
                 return;
             }
-            
-            setLoading('loginBtn', 'loginSpinner', 'loginBtnText', true);
-            
+
+            setLoading('loginBtn', true);
+
             try {
                 const res = await fetch('/api/auth', {
                     method: 'POST',
@@ -847,16 +1070,16 @@
                     body: JSON.stringify({ username, password })
                 });
                 const data = await res.json();
-                
+
                 if (data.success) {
                     appState.token = data.token;
                     appState.username = data.username;
                     appState.role = data.role;
-                    
+
                     localStorage.setItem('xpe_token', data.token);
                     localStorage.setItem('xpe_username', data.username);
                     localStorage.setItem('xpe_role', data.role);
-                    
+
                     showMessage('Bienvenido ' + data.username, 'success');
                     loadDashboard();
                 } else {
@@ -865,27 +1088,28 @@
             } catch (err) {
                 showMessage('Error de conexión con el servidor', 'error');
             }
-            
-            setLoading('loginBtn', 'loginSpinner', 'loginBtnText', false);
+
+            setLoading('loginBtn', false);
         });
-        
+
         // ========================
         // DASHBOARD
         // ========================
         async function loadDashboard() {
-            // Switch to dashboard tab
             document.querySelectorAll('.tab')[0].classList.remove('active');
-            document.querySelectorAll('.tab')[1].classList.add('active');
-            document.querySelectorAll('.tab')[1].disabled = false;
+            document.querySelectorAll('.tab')[2].classList.add('active');
+            document.querySelectorAll('.tab')[2].disabled = false;
             document.getElementById('tab-login').classList.remove('active');
             document.getElementById('tab-dashboard').classList.add('active');
-            
-            // Load stats
+
+            if (appState.role === 'admin') {
+                document.getElementById('sellerSection').style.display = 'block';
+            }
+
             await loadStats();
-            // Load licenses
             await loadLicenses();
         }
-        
+
         async function loadStats() {
             try {
                 const res = await fetch('/api/admin', {
@@ -901,7 +1125,7 @@
                 }
             } catch (err) {}
         }
-        
+
         async function loadLicenses() {
             try {
                 const res = await fetch('/api/admin', {
@@ -911,89 +1135,91 @@
                 });
                 const data = await res.json();
                 const tbody = document.getElementById('licenseList');
-                
+
                 if (data.success && data.licenses.length > 0) {
-                    tbody.innerHTML = data.licenses.slice(0, 50).map(l => {
+                    tbody.innerHTML = data.licenses.slice(0, 30).map(l => {
                         const now = new Date();
                         const expiry = new Date(l.expiry);
                         const isExpired = now > expiry;
                         const badgeClass = !l.active ? 'badge-revoked' : isExpired ? 'badge-expired' : 'badge-active';
                         const badgeText = !l.active ? 'Revocada' : isExpired ? 'Vencida' : 'Activa';
-                        const keyShort = l.key.length > 15 ? l.key.substring(0, 15) + '...' : l.key;
-                        
-                        return `
-                            <tr>
-                                <td style="font-family:monospace; font-size:11px;" title="${l.key}">${keyShort}</td>
-                                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
-                                <td>
-                                    ${l.active && !isExpired ? 
-                                        `<button class="btn btn-danger btn-sm" onclick="revokeLicense('${l.key}')" style="padding:4px 8px; font-size:10px;">Revocar</button>` : 
-                                        `<button class="btn btn-secondary btn-sm" onclick="reactivateLicense('${l.key}')" style="padding:4px 8px; font-size:10px;">Reactivar</button>`
-                                    }
-                                </td>
-                            </tr>
-                        `;
+                        const keyShort = l.key.length > 12 ? l.key.substring(0, 12) + '…' : l.key;
+                        return `<tr>
+                            <td style="font-family:monospace; font-size:10px;" title="${l.key}">${keyShort}</td>
+                            <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                            <td>${l.active && !isExpired ?
+                                `<button class="btn btn-danger btn-sm" onclick="revokeLicense('${l.key}')" style="padding:3px 6px; font-size:9px;">Revocar</button>` :
+                                `<button class="btn btn-secondary btn-sm" onclick="reactivateLicense('${l.key}')" style="padding:3px 6px; font-size:9px;">Activar</button>`}
+                            </td></tr>`;
                     }).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:20px;">No hay licencias aún</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:20px;">Sin licencias</td></tr>';
                 }
             } catch (err) {}
         }
-        
+
         // ========================
         // GENERATE LICENSE
         // ========================
         document.getElementById('genForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const customer = document.getElementById('genCustomer').value.trim();
-            const duration = parseInt(document.getElementById('genDuration').value);
-            
-            setLoading('genBtn', 'genSpinner', 'genBtnText', true);
+            const qty = parseInt(document.getElementById('genDurationQty').value) || 1;
+            const unit = document.getElementById('genDurationUnit').value;
+
+            let days;
+            switch (unit) {
+                case 'hours': days = qty / 24; break;
+                case 'days': days = qty; break;
+                case 'months': days = qty * 30; break;
+                case 'years': days = qty * 365; break;
+                case 'lifetime': days = 9999; break;
+                default: days = 1;
+            }
+
+            setLoading('genBtn', true);
             document.getElementById('genResult').style.display = 'none';
-            
+
             try {
                 const res = await fetch('/api/admin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        action: 'generate',
-                        token: appState.token,
-                        customer,
-                        duration,
-                        username: appState.username
+                        action: 'generate', token: appState.token,
+                        customer, duration: days, username: appState.username
                     })
                 });
                 const data = await res.json();
-                
+
                 if (data.success) {
                     document.getElementById('genKeyDisplay').textContent = data.key;
                     document.getElementById('genExpiryDisplay').textContent = data.expiry;
                     document.getElementById('genResult').style.display = 'block';
-                    showMessage('Licencia generada exitosamente', 'success');
+                    showMessage('Licencia generada ✅', 'success');
                     await loadStats();
                     await loadLicenses();
                 } else {
-                    showMessage(data.message || 'Error al generar licencia', 'error');
+                    showMessage(data.message || 'Error', 'error');
                 }
             } catch (err) {
                 showMessage('Error de conexión', 'error');
             }
-            
-            setLoading('genBtn', 'genSpinner', 'genBtnText', false);
+
+            setLoading('genBtn', false);
         });
-        
+
         function copyKey() {
             const key = document.getElementById('genKeyDisplay').textContent;
             navigator.clipboard.writeText(key).then(() => {
-                showMessage('Licencia copiada al portapapeles', 'info');
+                showMessage('✅ Copiada al portapapeles', 'info');
             });
         }
-        
+
         // ========================
         // REVOKE / REACTIVATE
         // ========================
         async function revokeLicense(key) {
-            if (!confirm('¿Revocar licencia ' + key + '?')) return;
+            if (!confirm('¿Revocar ' + key + '?')) return;
             try {
                 const res = await fetch('/api/admin', {
                     method: 'POST',
@@ -1001,18 +1227,11 @@
                     body: JSON.stringify({ action: 'revoke', token: appState.token, key })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    showMessage('Licencia revocada', 'success');
-                    await loadStats();
-                    await loadLicenses();
-                } else {
-                    showMessage(data.message, 'error');
-                }
-            } catch (err) {
-                showMessage('Error de conexión', 'error');
-            }
+                if (data.success) { showMessage('Revocada', 'success'); await loadStats(); await loadLicenses(); }
+                else showMessage(data.message, 'error');
+            } catch (err) { showMessage('Error', 'error'); }
         }
-        
+
         async function reactivateLicense(key) {
             try {
                 const res = await fetch('/api/admin', {
@@ -1021,18 +1240,19 @@
                     body: JSON.stringify({ action: 'reactivate', token: appState.token, key })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    showMessage('Licencia reactivada', 'success');
-                    await loadStats();
-                    await loadLicenses();
-                } else {
-                    showMessage(data.message, 'error');
-                }
-            } catch (err) {
-                showMessage('Error de conexión', 'error');
-            }
+                if (data.success) { showMessage('Reactivada', 'success'); await loadStats(); await loadLicenses(); }
+                else showMessage(data.message, 'error');
+            } catch (err) { showMessage('Error', 'error'); }
         }
-        
+
+        // ========================
+        // SELLER MANAGEMENT
+        // ========================
+        document.getElementById('sellerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showMessage('Funcionalidad de vendedores próximamente', 'info');
+        });
+
         // ========================
         // LOGOUT
         // ========================
@@ -1041,37 +1261,23 @@
             localStorage.removeItem('xpe_username');
             localStorage.removeItem('xpe_role');
             appState = { token: '', username: '', role: '' };
-            
+
             document.querySelectorAll('.tab')[0].classList.add('active');
             document.querySelectorAll('.tab')[1].classList.remove('active');
-            document.querySelectorAll('.tab')[1].disabled = true;
+            document.querySelectorAll('.tab')[2].classList.remove('active');
+            document.querySelectorAll('.tab')[2].disabled = true;
             document.getElementById('tab-login').classList.add('active');
             document.getElementById('tab-dashboard').classList.remove('active');
-            
+            document.getElementById('sellerSection').style.display = 'none';
             document.getElementById('loginUser').value = '';
             document.getElementById('loginPass').value = '';
-            
             showMessage('Sesión cerrada', 'info');
         });
-        
+
         // ========================
-        // AUTO-LOGIN CHECK
+        // AUTO-LOGIN
         // ========================
-        if (appState.token) {
-            loadDashboard();
-        }
-        
-        // ========================
-        // KEYBOARD SHORTCUTS
-        // ========================
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const active = document.querySelector('.tab-content.active');
-                if (active && active.id === 'tab-login') {
-                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-                }
-            }
-        });
+        if (appState.token) loadDashboard();
     </script>
 </body>
 </html>

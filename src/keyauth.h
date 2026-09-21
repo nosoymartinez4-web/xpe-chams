@@ -14,6 +14,7 @@ private:
     char m_licensekey[256];
     char m_username[64];
     char m_expiry[64];
+    char m_remaining[64];
     bool m_initialized;
     bool m_loggedin;
     bool m_subscribed;
@@ -30,8 +31,8 @@ public:
     // Check if subscription is still valid
     bool CheckSubscription();
 
-    // Getters
-    int GetStatus() const;
+    // Getters    int  GetStatus() const;
+    const char* GetRemaining() const;
     bool IsLoggedIn() const;
     bool IsSubscribed() const;
     const char* GetUsername() const;

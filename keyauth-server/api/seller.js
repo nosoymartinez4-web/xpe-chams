@@ -1,84 +1,62 @@
-// XPE KeyAuth - Seller endpoints
-// POST /api/seller - Generate & manage licenses for sellers
+// XPE KeyAuth - Seller endpoints (zero dependencies)
+const licenses = global.__licenses || {};
+global.__licenses = licenses;
 
-const { v4: uuidv4 } = require('uuid');
-
-const licenses = global.licenses || {};
-global.licenses = licenses;
+function genKey() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let k = 'XPE-';
+    for (let i = 0; i < 8; i++) k += chars[Math.floor(Math.random() * chars.length)];
+    k += '-';
+    for (let i = 0; i < 4; i++) k += chars[Math.floor(Math.random() * chars.length)];
+    return k;
+}
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    
-    if (req.method !== 'POST') {
-        return res.status(405).json({ success: false, message: 'Method not allowed' });
-    }
+    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+    if (req.method !== 'POST') { return res.status(405).end(); }
 
-    const { action, token, username } = req.body || {};
+    let body = '';
+    await new Promise(resolve => { req.on('data', c => body += c); req.on('end', resolve); });
 
-    // Simple auth check
-    if (!token || token.length < 5) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-    }
+    try {
+        const data = JSON.parse(body);
+        if (!data.token || data.token.length < 5) {
+            return res.status(401).json({ success: false, message: 'No autorizado' });
+        }
 
-    switch (action) {
-        case 'generate':
-            const duration = parseInt(req.body.duration) || 30;
-            const newKey = 'XPE-' + uuidv4().substring(0, 8).toUpperCase() + '-' + 
-                          uuidv4().substring(0, 4).toUpperCase();
-            
-            const created = new Date();
-            const expiry = new Date(created);
-            expiry.setDate(expiry.getDate() + duration);
+        switch (data.action) {
+            case 'generate': {
+                const days = parseInt(data.duration) || 30;
+                const newKey = genKey();
+                const created = new Date();
+                const expiry = new Date(created);
+                expiry.setDate(expiry.getDate() + days);
 
-            licenses[newKey] = {
-                key: newKey,
-                username: req.body.customer || '',
-                created: created.toISOString().split('T')[0],
-                expiry: expiry.toISOString().split('T')[0],
-                active: true,
-                hwid: '',
-                seller: username || 'unknown',
-                lastLogin: ''
-            };
-
-            return res.json({
-                success: true,
-                key: newKey,
-                expiry: licenses[newKey].expiry
-            });
-
-        case 'list':
-            const myLicenses = Object.values(licenses).filter(l => l.seller === username);
-            return res.json({
-                success: true,
-                licenses: myLicenses.map(l => ({
-                    key: l.key,
-                    username: l.username,
-                    created: l.created,
-                    expiry: l.expiry,
-                    active: l.active,
-                    hwid: l.hwid || '',
-                    lastLogin: l.lastLogin || ''
-                }))
-            });
-
-        case 'stats':
-            const sellerLicenses = Object.values(licenses).filter(l => l.seller === username);
-            const total = sellerLicenses.length;
-            const active = sellerLicenses.filter(l => l.active).length;
-            return res.json({
-                success: true,
-                stats: { total, active, revoked: total - active }
-            });
-
-        default:
-            return res.json({ success: false, message: 'Unknown action' });
+                licenses[newKey] = {
+                    key: newKey, username: data.customer || '',
+                    created: created.toISOString().split('T')[0],
+                    expiry: expiry.toISOString().split('T')[0],
+                    active: true, hwid: '', seller: data.username || 'unknown', lastLogin: ''
+                };
+                return res.json({ success: true, key: newKey, expiry: licenses[newKey].expiry });
+            }
+            case 'list': {
+                const myList = Object.values(licenses).filter(l => l.seller === data.username);
+                return res.json({ success: true, licenses: myList });
+            }
+            case 'stats': {
+                const mine = Object.values(licenses).filter(l => l.seller === data.username);
+                const total = mine.length;
+                const active = mine.filter(l => l.active).length;
+                return res.json({ success: true, stats: { total, active, revoked: total - active } });
+            }
+            default:
+                return res.json({ success: false, message: 'Acción desconocida' });
+        }
+    } catch (e) {
+        res.status(400).json({ success: false, message: 'JSON inválido' });
     }
 };

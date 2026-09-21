@@ -1,113 +1,85 @@
-// XPE KeyAuth - Admin endpoints
-// POST /api/admin - List/manage licenses
-// POST /api/generate - Generate new license
-// POST /api/revoke - Revoke license
+// XPE KeyAuth - Admin endpoints (zero dependencies)
+const licenses = global.__licenses || {};
+global.__licenses = licenses;
 
-const { v4: uuidv4 } = require('uuid');
-
-const licenses = global.licenses || {};
-global.licenses = licenses;
-
-// Simple token validation
-function validateToken(token) {
-    // For now, just check it's not empty
-    return token && token.length > 0;
+function genKey() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let k = 'XPE-';
+    for (let i = 0; i < 8; i++) k += chars[Math.floor(Math.random() * chars.length)];
+    k += '-';
+    for (let i = 0; i < 4; i++) k += chars[Math.floor(Math.random() * chars.length)];
+    return k;
 }
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
+    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+    if (req.method !== 'POST') { return res.status(405).end(); }
 
-    const { action, token, username, role } = req.body || {};
+    let body = '';
+    await new Promise(resolve => { req.on('data', c => body += c); req.on('end', resolve); });
 
-    if (!validateToken(token)) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-    }
+    try {
+        const data = JSON.parse(body);
+        if (!data.token || data.token.length < 5) {
+            return res.status(401).json({ success: false, message: 'No autorizado' });
+        }
 
-    switch (action) {
-        case 'list':
-            // Return all licenses
-            const licenseList = Object.values(licenses).map(l => ({
-                key: l.key,
-                username: l.username,
-                created: l.created,
-                expiry: l.expiry,
-                active: l.active,
-                hwid: l.hwid || '',
-                seller: l.seller || '',
-                lastLogin: l.lastLogin || ''
-            }));
-            return res.json({ success: true, licenses: licenseList });
-
-        case 'generate':
-            // Generate new license
-            const newKey = 'XPE-' + uuidv4().substring(0, 8).toUpperCase() + '-' + 
-                          uuidv4().substring(0, 4).toUpperCase();
-            
-            const duration = parseInt(req.body.duration) || 365;
-            const created = new Date();
-            const expiry = new Date(created);
-            expiry.setDate(expiry.getDate() + duration);
-
-            licenses[newKey] = {
-                key: newKey,
-                username: req.body.customer || '',
-                created: created.toISOString().split('T')[0],
-                expiry: expiry.toISOString().split('T')[0],
-                active: true,
-                hwid: '',
-                seller: username || 'admin',
-                lastLogin: ''
-            };
-
-            return res.json({
-                success: true,
-                key: newKey,
-                expiry: licenses[newKey].expiry
-            });
-
-        case 'revoke':
-            const revokeKey = req.body.key;
-            if (!revokeKey || !licenses[revokeKey]) {
-                return res.json({ success: false, message: 'License not found' });
+        switch (data.action) {
+            case 'list': {
+                const list = Object.values(licenses).map(l => ({
+                    key: l.key, username: l.username, created: l.created,
+                    expiry: l.expiry, active: l.active, hwid: l.hwid || '',
+                    seller: l.seller || '', lastLogin: l.lastLogin || ''
+                }));
+                return res.json({ success: true, licenses: list });
             }
-            licenses[revokeKey].active = false;
-            return res.json({ success: true, message: 'License revoked' });
+            case 'generate': {
+                const newKey = genKey();
+                const days = parseInt(data.duration) || 365;
+                const created = new Date();
+                const expiry = new Date(created);
+                expiry.setDate(expiry.getDate() + days);
 
-        case 'reactivate':
-            const reactKey = req.body.key;
-            if (!reactKey || !licenses[reactKey]) {
-                return res.json({ success: false, message: 'License not found' });
+                licenses[newKey] = {
+                    key: newKey, username: data.customer || '',
+                    created: created.toISOString().split('T')[0],
+                    expiry: expiry.toISOString().split('T')[0],
+                    active: true, hwid: '', seller: data.username || 'admin', lastLogin: ''
+                };
+                return res.json({ success: true, key: newKey, expiry: licenses[newKey].expiry });
             }
-            licenses[reactKey].active = true;
-            return res.json({ success: true, message: 'License reactivated' });
-
-        case 'delete':
-            const delKey = req.body.key;
-            if (!delKey || !licenses[delKey]) {
-                return res.json({ success: false, message: 'License not found' });
+            case 'revoke': {
+                if (!data.key || !licenses[data.key])
+                    return res.json({ success: false, message: 'No encontrada' });
+                licenses[data.key].active = false;
+                return res.json({ success: true, message: 'Revocada' });
             }
-            delete licenses[delKey];
-            return res.json({ success: true, message: 'License deleted' });
-
-        case 'stats':
-            const total = Object.keys(licenses).length;
-            const active = Object.values(licenses).filter(l => l.active).length;
-            const expired = Object.values(licenses).filter(l => {
-                return new Date(l.expiry) < new Date();
-            }).length;
-            return res.json({
-                success: true,
-                stats: { total, active, expired, revoked: total - active }
-            });
-
-        default:
-            return res.json({ success: false, message: 'Unknown action' });
+            case 'reactivate': {
+                if (!data.key || !licenses[data.key])
+                    return res.json({ success: false, message: 'No encontrada' });
+                licenses[data.key].active = true;
+                return res.json({ success: true, message: 'Reactivada' });
+            }
+            case 'delete': {
+                if (!data.key || !licenses[data.key])
+                    return res.json({ success: false, message: 'No encontrada' });
+                delete licenses[data.key];
+                return res.json({ success: true, message: 'Eliminada' });
+            }
+            case 'stats': {
+                const all = Object.values(licenses);
+                const total = all.length;
+                const active = all.filter(l => l.active).length;
+                const expired = all.filter(l => new Date(l.expiry) < new Date()).length;
+                return res.json({ success: true, stats: { total, active, expired, revoked: total - active } });
+            }
+            default:
+                return res.json({ success: false, message: 'Acción desconocida' });
+        }
+    } catch (e) {
+        res.status(400).json({ success: false, message: 'JSON inválido' });
     }
 };

@@ -1,49 +1,34 @@
-// XPE KeyAuth - Check license status (called periodically by DLL)
-// POST /api/check
-
-const licenses = global.licenses || {};
-global.licenses = licenses;
+// XPE KeyAuth - Check subscription status (zero dependencies)
+const licenses = global.__licenses || {};
+global.__licenses = licenses;
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    
-    if (req.method !== 'POST') {
-        return res.status(405).json({ success: false, message: 'Method not allowed' });
-    }
+    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+    if (req.method !== 'POST') { return res.status(405).end(); }
 
-    const { key } = req.body || {};
+    let body = '';
+    await new Promise(resolve => { req.on('data', c => body += c); req.on('end', resolve); });
 
-    if (!key) {
-        return res.status(400).json({ success: false, message: 'License key required' });
+    try {
+        const { key } = JSON.parse(body);
+        if (!key) return res.status(400).json({ success: false, message: 'Key requerida' });
+
+        const lic = licenses[key];
+        if (!lic) return res.json({ success: false, message: 'Licencia inválida' });
+        if (!lic.active) return res.json({ success: false, message: 'Licencia revocada' });
+
+        const now = new Date();
+        const expiry = new Date(lic.expiry);
+        if (now > expiry) {
+            lic.active = false;
+            return res.json({ success: false, message: 'Licencia expirada' });
+        }
+
+        res.json({ success: true, username: lic.username || key, expiry: lic.expiry });
+    } catch (e) {
+        res.status(400).json({ success: false, message: 'JSON inválido' });
     }
-
-    const license = licenses[key];
-    if (!license) {
-        return res.json({ success: false, message: 'Invalid license key' });
-    }
-
-    if (!license.active) {
-        return res.json({ success: false, message: 'License revoked' });
-    }
-
-    // Check expiry
-    const now = new Date();
-    const expiry = new Date(license.expiry);
-    if (now > expiry) {
-        license.active = false;
-        return res.json({ success: false, message: 'License expired' });
-    }
-
-    res.json({
-        success: true,
-        username: license.username || key,
-        expiry: license.expiry
-    });
 };

@@ -1,29 +1,15 @@
-// XPE KeyAuth - Verify license key (called by the DLL)
-// POST /api/verify
+// XPE KeyAuth - Verify license key (zero dependencies)
+// In-memory storage
+const licenses = global.__licenses || {};
+global.__licenses = licenses;
 
-// In-memory license storage (in production use Vercel KV or a JSON file)
-const licenses = global.licenses || {};
-global.licenses = licenses;
-
-// Seed some demo licenses if empty
+// Seed demo keys
 if (Object.keys(licenses).length === 0) {
+    const d = new Date(); d.setFullYear(d.getFullYear() + 1);
     licenses['XPE-DEMO-2024-ABCD'] = {
-        key: 'XPE-DEMO-2024-ABCD',
-        username: 'demo_user',
-        created: '2024-01-15',
-        expiry: '2025-01-15',
-        active: true,
-        hwid: '',
-        seller: 'xpe.nettt'
-    };
-    licenses['XPE-TEST-1234'] = {
-        key: 'XPE-TEST-1234',
-        username: 'tester',
-        created: '2024-06-01',
-        expiry: '2025-06-01',
-        active: true,
-        hwid: '',
-        seller: 'xpe.nettt'
+        key: 'XPE-DEMO-2024-ABCD', username: 'demo_user',
+        created: '2024-01-15', expiry: d.toISOString().split('T')[0],
+        active: true, hwid: '', seller: 'xpe.nettt', lastLogin: ''
     };
 }
 
@@ -31,56 +17,48 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+    if (req.method !== 'POST') { return res.status(405).end(); }
+
+    let body = '';
+    await new Promise(resolve => { req.on('data', c => body += c); req.on('end', resolve); });
+
+    try {
+        const { key, hwid } = JSON.parse(body);
+        if (!key) return res.status(400).json({ success: false, message: 'Key requerida' });
+
+        const lic = licenses[key];
+        if (!lic) return res.json({ success: false, message: 'Licencia inválida' });
+        if (!lic.active) return res.json({ success: false, message: 'Licencia revocada' });
+
+        const now = new Date();
+        const expiry = new Date(lic.expiry);
+        if (now > expiry) {
+            lic.active = false;
+            return res.json({ success: false, message: 'Licencia expirada' });
+        }
+
+        // Bind HWID on first use
+        if (!lic.hwid && hwid) lic.hwid = hwid;
+        if (lic.hwid && hwid && lic.hwid !== hwid) {
+            return res.json({ success: false, message: 'Licencia en uso en otro PC' });
+        }
+
+        lic.lastLogin = now.toISOString();
+
+        // Calculate remaining time
+        const diffMs = expiry - now;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        res.json({
+            success: true,
+            username: lic.username || key,
+            expiry: lic.expiry,
+            key: lic.key,
+            remaining: diffDays > 0 ? diffDays + ' días' : diffHours > 0 ? diffHours + ' horas' : '< 1 hora'
+        });
+    } catch (e) {
+        res.status(400).json({ success: false, message: 'JSON inválido' });
     }
-    
-    if (req.method !== 'POST') {
-        return res.status(405).json({ success: false, message: 'Method not allowed' });
-    }
-
-    const { key, hwid } = req.body || {};
-
-    if (!key) {
-        return res.status(400).json({ success: false, message: 'License key required' });
-    }
-
-    const license = licenses[key];
-    if (!license) {
-        return res.json({ success: false, message: 'Invalid license key' });
-    }
-
-    if (!license.active) {
-        return res.json({ success: false, message: 'License has been revoked' });
-    }
-
-    // Check expiry
-    const now = new Date();
-    const expiry = new Date(license.expiry);
-    if (now > expiry) {
-        license.active = false;
-        return res.json({ success: false, message: 'License has expired' });
-    }
-
-    // Bind HWID on first use
-    if (!license.hwid && hwid) {
-        license.hwid = hwid;
-    }
-
-    // Check HWID match
-    if (license.hwid && hwid && license.hwid !== hwid) {
-        return res.json({ success: false, message: 'License already in use on another PC' });
-    }
-
-    // Update last login
-    license.lastLogin = now.toISOString();
-
-    res.json({
-        success: true,
-        username: license.username || key,
-        expiry: license.expiry,
-        key: license.key
-    });
 };
