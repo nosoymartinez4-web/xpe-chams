@@ -18,67 +18,68 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') { res.status(200).end(); return; }
     if (req.method !== 'POST') { return res.status(405).json({ success: false }); }
 
-    let body = '';
-    await new Promise(resolve => { req.on('data', c => body += c); req.on('end', resolve); });
+    let data;
+    if (req.body && Object.keys(req.body).length > 0) {
+        data = req.body;
+    } else {
+        let body = '';
+        await new Promise(resolve => { req.on('data', c => body += c); req.on('end', resolve); });
+        try { data = JSON.parse(body); } catch(e) { return res.status(400).json({ success: false, message: 'JSON inválido' }); }
+    }
 
-    try {
-        const data = JSON.parse(body);
-        if (!data.token || data.token.length < 5) {
-            return res.status(401).json({ success: false, message: 'No autorizado' });
-        }
+    if (!data.token || data.token.length < 5) {
+        return res.status(401).json({ success: false, message: 'No autorizado' });
+    }
 
-        switch (data.action) {
-            case 'list': {
-                const list = Object.values(licenses).map(l => ({
-                    key: l.key, username: l.username, created: l.created,
-                    expiry: l.expiry, active: l.active, hwid: l.hwid || '',
-                    seller: l.seller || '', lastLogin: l.lastLogin || ''
-                }));
-                return res.json({ success: true, licenses: list });
-            }
-            case 'generate': {
-                const newKey = genKey();
-                const days = parseInt(data.duration) || 365;
-                const created = new Date();
-                const expiry = new Date(created);
-                expiry.setDate(expiry.getDate() + days);
-                licenses[newKey] = {
-                    key: newKey, username: data.customer || '',
-                    created: created.toISOString().split('T')[0],
-                    expiry: expiry.toISOString().split('T')[0],
-                    active: true, hwid: '', seller: data.username || 'admin', lastLogin: ''
-                };
-                return res.json({ success: true, key: newKey, expiry: licenses[newKey].expiry });
-            }
-            case 'revoke': {
-                if (!data.key || !licenses[data.key])
-                    return res.json({ success: false, message: 'No encontrada' });
-                licenses[data.key].active = false;
-                return res.json({ success: true, message: 'Revocada' });
-            }
-            case 'reactivate': {
-                if (!data.key || !licenses[data.key])
-                    return res.json({ success: false, message: 'No encontrada' });
-                licenses[data.key].active = true;
-                return res.json({ success: true, message: 'Reactivada' });
-            }
-            case 'delete': {
-                if (!data.key || !licenses[data.key])
-                    return res.json({ success: false, message: 'No encontrada' });
-                delete licenses[data.key];
-                return res.json({ success: true, message: 'Eliminada' });
-            }
-            case 'stats': {
-                const all = Object.values(licenses);
-                const total = all.length;
-                const active = all.filter(l => l.active).length;
-                const expired = all.filter(l => new Date(l.expiry) < new Date()).length;
-                return res.json({ success: true, stats: { total, active, expired, revoked: total - active } });
-            }
-            default:
-                return res.json({ success: false, message: 'Acción desconocida' });
+    switch (data.action) {
+        case 'list': {
+            const list = Object.values(licenses).map(l => ({
+                key: l.key, username: l.username, created: l.created,
+                expiry: l.expiry, active: l.active, hwid: l.hwid || '',
+                seller: l.seller || '', lastLogin: l.lastLogin || ''
+            }));
+            return res.json({ success: true, licenses: list });
         }
-    } catch (e) {
-        res.status(400).json({ success: false, message: 'Error: ' + e.message });
+        case 'generate': {
+            const newKey = genKey();
+            const days = parseInt(data.duration) || 365;
+            const created = new Date();
+            const expiry = new Date(created);
+            expiry.setDate(expiry.getDate() + days);
+            licenses[newKey] = {
+                key: newKey, username: data.customer || '',
+                created: created.toISOString().split('T')[0],
+                expiry: expiry.toISOString().split('T')[0],
+                active: true, hwid: '', seller: data.username || 'admin', lastLogin: ''
+            };
+            return res.json({ success: true, key: newKey, expiry: licenses[newKey].expiry });
+        }
+        case 'revoke': {
+            if (!data.key || !licenses[data.key])
+                return res.json({ success: false, message: 'No encontrada' });
+            licenses[data.key].active = false;
+            return res.json({ success: true, message: 'Revocada' });
+        }
+        case 'reactivate': {
+            if (!data.key || !licenses[data.key])
+                return res.json({ success: false, message: 'No encontrada' });
+            licenses[data.key].active = true;
+            return res.json({ success: true, message: 'Reactivada' });
+        }
+        case 'delete': {
+            if (!data.key || !licenses[data.key])
+                return res.json({ success: false, message: 'No encontrada' });
+            delete licenses[data.key];
+            return res.json({ success: true, message: 'Eliminada' });
+        }
+        case 'stats': {
+            const all = Object.values(licenses);
+            const total = all.length;
+            const active = all.filter(l => l.active).length;
+            const expired = all.filter(l => new Date(l.expiry) < new Date()).length;
+            return res.json({ success: true, stats: { total, active, expired, revoked: total - active } });
+        }
+        default:
+            return res.json({ success: false, message: 'Acción desconocida' });
     }
 };
