@@ -1,0 +1,21 @@
+{
+  "name": "XPE KeyAuth",
+  "short_name": "XPE KeyAuth",
+  "description": "XPE KeyAuth - License Management System by xpe.nettt",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#cc0000",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/xpenettt/xpe-keyauth/main/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/xpenettt/xpe-keyauth/main/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

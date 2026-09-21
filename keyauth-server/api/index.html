@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#cc0000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="XPE KeyAuth">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/xpenettt/xpe-keyauth/main/icon-192.png">
+    <title>XPE KeyAuth - by xpe.nettt</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap');
+        
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111111;
+            --surface2: #1a1a1a;
+            --border: #2a0000;
+            --primary: #cc0000;
+            --primary-dark: #990000;
+            --primary-glow: rgba(204, 0, 0, 0.4);
+            --text: #e0e0e0;
+            --text-muted: #888888;
+            --success: #00cc44;
+            --warning: #ffaa00;
+            --danger: #ff2244;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Ghost background */
+        #ghost-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            opacity: 0.06;
+            pointer-events: none;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><path d="M200 50 C100 50 50 120 50 200 C50 300 120 350 200 350 C280 350 350 300 350 200 C350 120 300 50 200 50 Z M200 100 C250 100 280 140 280 200 C280 260 250 300 200 300 C150 300 120 260 120 200 C120 140 150 100 200 100 Z" fill="%23cc0000"/><circle cx="160" cy="180" r="12" fill="%23cc0000"/><circle cx="240" cy="180" r="12" fill="%23cc0000"/><path d="M160 230 Q200 270 240 230" fill="none" stroke="%23cc0000" stroke-width="6" stroke-linecap="round"/></svg>');
+            background-repeat: repeat;
+            background-size: 200px 200px;
+        }
+        
+        /* Particles canvas */
+        #particles-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 420px;
+            margin: 0 auto;
+            padding: 20px 16px;
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 30px 0 20px;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 12px;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface);
+            box-shadow: 0 0 30px var(--primary-glow);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
+            50% { box-shadow: 0 0 40px var(--primary-glow), 0 0 60px rgba(204,0,0,0.2); }
+        }
+        
+        .logo svg {
+            width: 45px;
+            height: 45px;
+            fill: var(--primary);
+        }
+        
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px var(--primary-glow);
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            letter-spacing: 2px;
+        }
+        
+        .header .subtitle span {
+            color: var(--primary);
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        
+        .card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(204,0,0,0.2);
+        }
+        
+        .form-group input::placeholder {
+            color: #444;
+        }
+        
+        select {
+            cursor: pointer;
+        }
+        
+        select option {
+            background: var(--surface);
+            color: var(--text);
+        }
+        
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Orbitron', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(204,0,0,0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(204,0,0,0.5);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(204,0,0,0.1);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 11px;
+            width: auto;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        /* Messages */
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
+        .message.error {
+            display: block;
+            background: rgba(255, 34, 68, 0.15);
+            border: 1px solid rgba(255, 34, 68, 0.3);
+            color: var(--danger);
+        }
+        
+        .message.success {
+            display: block;
+            background: rgba(0, 204, 68, 0.15);
+            border: 1px solid rgba(0, 204, 68, 0.3);
+            color: var(--success);
+        }
+        
+        .message.info {
+            display: block;
+            background: rgba(204, 0, 0, 0.1);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: var(--surface2);
+            border-radius: 10px;
+            padding: 4px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+            border: none;
+            background: transparent;
+        }
+        
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 10px rgba(204,0,0,0.3);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* License key display */
+        .key-display {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            color: var(--primary);
+            text-align: center;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            word-break: break-all;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        .key-display .label {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        /* License table */
+        .license-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .license-table th {
+            text-align: left;
+            padding: 8px 4px;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .license-table td {
+            padding: 10px 4px;
+            border-bottom: 1px solid rgba(42, 0, 0, 0.3);
+        }
+        
+        .license-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .badge-active {
+            background: rgba(0, 204, 68, 0.2);
+            color: var(--success);
+        }
+        
+        .badge-revoked {
+            background: rgba(255, 34, 68, 0.2);
+            color: var(--danger);
+        }
+        
+        .badge-expired {
+            background: rgba(255, 170, 0, 0.2);
+            color: var(--warning);
+        }
+        
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .stat-card .number {
+            font-family: 'Orbitron', monospace;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--primary);
+        }
+        
+        .stat-card .label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+        
+        /* Install prompt */
+        .install-prompt {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: none;
+            text-align: center;
+        }
+        
+        .install-prompt.show {
+            display: block;
+        }
+        
+        .install-prompt p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        
+        .install-prompt .btn {
+            max-width: 200px;
+            margin: 0 auto;
+        }
+        
+        /* Contact */
+        .contact-bar {
+            text-align: center;
+            padding: 20px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 20px;
+        }
+        
+        .contact-bar p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .contact-bar .whatsapp {
+            color: var(--primary);
+            font-size: 16px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 4px;
+            padding: 8px 20px;
+            border: 1px solid var(--primary);
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .contact-bar .whatsapp:hover {
+            background: rgba(204,0,0,0.1);
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container { padding: 12px; }
+            .header h1 { font-size: 20px; }
+            .card { padding: 16px; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+            .stat-card .number { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Ghost background -->
+    <div id="ghost-bg"></div>
+    
+    <!-- Particles canvas -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <svg viewBox="0 0 100 100">
+                    <path d="M50 10 C30 10 15 30 15 50 C15 70 30 90 50 90 C70 90 85 70 85 50 C85 30 70 10 50 10 Z M50 25 C60 25 68 35 68 50 C68 65 60 75 50 75 C40 75 32 65 32 50 C32 35 40 25 50 25 Z"/>
+                    <circle cx="38" cy="45" r="5"/>
+                    <circle cx="62" cy="45" r="5"/>
+                    <path d="M38 65 Q50 78 62 65" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h1>XPE KeyAuth</h1>
+            <p class="subtitle">by <span>xpe.nettt</span> &bull; Stealth Proyects</p>
+        </div>
+        
+        <!-- Install prompt -->
+        <div class="install-prompt" id="installPrompt">
+            <p>📱 Agrega XPE KeyAuth a tu pantalla de inicio para acceso rápido</p>
+            <button class="btn btn-primary btn-sm" id="installBtn">Agregar a Inicio</button>
+        </div>
+        
+        <!-- Message -->
+        <div id="message" class="message"></div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="login">Login</button>
+            <button class="tab" data-tab="dashboard" disabled>Dashboard</button>
+        </div>
+        
+        <!-- Login Tab -->
+        <div class="tab-content active" id="tab-login">
+            <div class="card">
+                <div class="card-title">Iniciar Sesión</div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Usuario</label>
+                        <input type="text" id="loginUser" placeholder="Tu usuario" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="password" id="loginPass" placeholder="Tu contraseña" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="loginBtn">
+                        <span id="loginBtnText">INGRESAR</span>
+                        <span class="spinner" id="loginSpinner" style="display:none"></span>
+                    </button>
+                </form>
+                <div style="margin-top:16px; text-align:center; font-size:12px; color:var(--text-muted);">
+                    ¿Necesitas una licencia?<br>
+                    <a href="https://wa.me/18496393107" target="_blank" style="color:var(--primary); text-decoration:none; font-weight:600;">
+                        Contactar vendedor → 849 639 3107
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard Tab -->
+        <div class="tab-content" id="tab-dashboard">
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="number" id="statTotal">0</div>
+                    <div class="label">Total</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="statActive" style="color:var(--success)">0</div>
+                    <div class="label">Activas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="statExpired" style="color:var(--danger)">0</div>
+                    <div class="label">Vencidas</div>
+                </div>
+            </div>
+            
+            <!-- Generate License -->
+            <div class="card">
+                <div class="card-title">Generar Licencia</div>
+                <form id="genForm">
+                    <div class="form-group">
+                        <label>Cliente (opcional)</label>
+                        <input type="text" id="genCustomer" placeholder="Nombre del cliente">
+                    </div>
+                    <div class="form-group">
+                        <label>Duración</label>
+                        <select id="genDuration">
+                            <option value="30">30 días</option>
+                            <option value="90">90 días</option>
+                            <option value="180">6 meses</option>
+                            <option value="365" selected>1 año</option>
+                            <option value="730">2 años</option>
+                            <option value="9999">Vitalicia</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="genBtn">
+                        <span id="genBtnText">GENERAR LICENCIA</span>
+                        <span class="spinner" id="genSpinner" style="display:none"></span>
+                    </button>
+                </form>
+                <div id="genResult" style="display:none; margin-top:16px;">
+                    <div class="key-display">
+                        <span class="label">Licencia Generada</span>
+                        <span id="genKeyDisplay">XPE-XXXXXXXX-XXXX</span>
+                    </div>
+                    <div style="text-align:center; font-size:12px; color:var(--text-muted);">
+                        Vence: <span id="genExpiryDisplay" style="color:var(--primary);"></span>
+                        <br><br>
+                        <button class="btn btn-secondary btn-sm" onclick="copyKey()">Copiar Licencia</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Licenses List -->
+            <div class="card">
+                <div class="card-title">Licencias Activas</div>
+                <div style="max-height:300px; overflow-y:auto;">
+                    <table class="license-table">
+                        <thead>
+                            <tr>
+                                <th>Licencia</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="licenseList">
+                            <tr>
+                                <td colspan="3" style="text-align:center; color:var(--text-muted); padding:20px;">
+                                    Cargando...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Logout & Contact -->
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-secondary" id="logoutBtn" style="flex:1;">CERRAR SESIÓN</button>
+                <a href="https://wa.me/18496393107" target="_blank" class="btn btn-primary" style="flex:1; text-decoration:none; text-align:center; line-height:14px;">
+                    WhatsApp 849 639 3107
+                </a>
+            </div>
+            
+            <div class="contact-bar">
+                <p>XPE CHAMS v2 &copy; 2017-2026 xpe.nettt &bull; Stealth Proyects</p>
+                <p style="font-size:10px; margin-top:4px;">Todos los derechos reservados</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ========================
+        // PARTICLES
+        // ========================
+        const canvas = document.getElementById('particles-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.5;
+                this.opacity = Math.random() * 0.5 + 0.1;
+                this.hue = 0; // red
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(204, 0, 0, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+        
+        for (let i = 0; i < 80; i++) {
+            particles.push(new Particle());
+        }
+        
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            // Draw connections
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(204, 0, 0, ${0.1 * (1 - dist/120)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+        
+        // ========================
+        // PWA INSTALL
+        // ========================
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPrompt').classList.add('show');
+        });
+        
+        document.getElementById('installBtn').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const result = await deferredPrompt.userChoice;
+                if (result.outcome === 'accepted') {
+                    document.getElementById('installPrompt').classList.remove('show');
+                }
+                deferredPrompt = null;
+            }
+        });
+        
+        // iOS detection for "Add to Home Screen"
+        if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+            if (!window.navigator.standalone) {
+                document.getElementById('installPrompt').classList.add('show');
+                document.getElementById('installPrompt').querySelector('p').textContent = 
+                    '📱 Presiona "Compartir" y luego "Agregar a pantalla de inicio"';
+                document.getElementById('installBtn').style.display = 'none';
+            }
+        }
+        
+        // ========================
+        // APP STATE
+        // ========================
+        let appState = {
+            token: localStorage.getItem('xpe_token') || '',
+            username: localStorage.getItem('xpe_username') || '',
+            role: localStorage.getItem('xpe_role') || ''
+        };
+        
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'message ' + type;
+            setTimeout(() => { msg.className = 'message'; }, 5000);
+        }
+        
+        function setLoading(btnId, spinnerId, textId, loading) {
+            document.getElementById(btnId).disabled = loading;
+            document.getElementById(spinnerId).style.display = loading ? 'inline-block' : 'none';
+            document.getElementById(textId).style.display = loading ? 'none' : 'inline';
+        }
+        
+        // ========================
+        // TABS
+        // ========================
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+        
+        // ========================
+        // LOGIN
+        // ========================
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUser').value.trim();
+            const password = document.getElementById('loginPass').value.trim();
+            
+            if (!username || !password) {
+                showMessage('Completa todos los campos', 'error');
+                return;
+            }
+            
+            setLoading('loginBtn', 'loginSpinner', 'loginBtnText', true);
+            
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    appState.token = data.token;
+                    appState.username = data.username;
+                    appState.role = data.role;
+                    
+                    localStorage.setItem('xpe_token', data.token);
+                    localStorage.setItem('xpe_username', data.username);
+                    localStorage.setItem('xpe_role', data.role);
+                    
+                    showMessage('Bienvenido ' + data.username, 'success');
+                    loadDashboard();
+                } else {
+                    showMessage(data.message || 'Credenciales inválidas', 'error');
+                }
+            } catch (err) {
+                showMessage('Error de conexión con el servidor', 'error');
+            }
+            
+            setLoading('loginBtn', 'loginSpinner', 'loginBtnText', false);
+        });
+        
+        // ========================
+        // DASHBOARD
+        // ========================
+        async function loadDashboard() {
+            // Switch to dashboard tab
+            document.querySelectorAll('.tab')[0].classList.remove('active');
+            document.querySelectorAll('.tab')[1].classList.add('active');
+            document.querySelectorAll('.tab')[1].disabled = false;
+            document.getElementById('tab-login').classList.remove('active');
+            document.getElementById('tab-dashboard').classList.add('active');
+            
+            // Load stats
+            await loadStats();
+            // Load licenses
+            await loadLicenses();
+        }
+        
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'stats', token: appState.token })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statTotal').textContent = data.stats.total;
+                    document.getElementById('statActive').textContent = data.stats.active;
+                    document.getElementById('statExpired').textContent = data.stats.expired;
+                }
+            } catch (err) {}
+        }
+        
+        async function loadLicenses() {
+            try {
+                const res = await fetch('/api/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'list', token: appState.token })
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('licenseList');
+                
+                if (data.success && data.licenses.length > 0) {
+                    tbody.innerHTML = data.licenses.slice(0, 50).map(l => {
+                        const now = new Date();
+                        const expiry = new Date(l.expiry);
+                        const isExpired = now > expiry;
+                        const badgeClass = !l.active ? 'badge-revoked' : isExpired ? 'badge-expired' : 'badge-active';
+                        const badgeText = !l.active ? 'Revocada' : isExpired ? 'Vencida' : 'Activa';
+                        const keyShort = l.key.length > 15 ? l.key.substring(0, 15) + '...' : l.key;
+                        
+                        return `
+                            <tr>
+                                <td style="font-family:monospace; font-size:11px;" title="${l.key}">${keyShort}</td>
+                                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                                <td>
+                                    ${l.active && !isExpired ? 
+                                        `<button class="btn btn-danger btn-sm" onclick="revokeLicense('${l.key}')" style="padding:4px 8px; font-size:10px;">Revocar</button>` : 
+                                        `<button class="btn btn-secondary btn-sm" onclick="reactivateLicense('${l.key}')" style="padding:4px 8px; font-size:10px;">Reactivar</button>`
+                                    }
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:20px;">No hay licencias aún</td></tr>';
+                }
+            } catch (err) {}
+        }
+        
+        // ========================
+        // GENERATE LICENSE
+        // ========================
+        document.getElementById('genForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const customer = document.getElementById('genCustomer').value.trim();
+            const duration = parseInt(document.getElementById('genDuration').value);
+            
+            setLoading('genBtn', 'genSpinner', 'genBtnText', true);
+            document.getElementById('genResult').style.display = 'none';
+            
+            try {
+                const res = await fetch('/api/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'generate',
+                        token: appState.token,
+                        customer,
+                        duration,
+                        username: appState.username
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('genKeyDisplay').textContent = data.key;
+                    document.getElementById('genExpiryDisplay').textContent = data.expiry;
+                    document.getElementById('genResult').style.display = 'block';
+                    showMessage('Licencia generada exitosamente', 'success');
+                    await loadStats();
+                    await loadLicenses();
+                } else {
+                    showMessage(data.message || 'Error al generar licencia', 'error');
+                }
+            } catch (err) {
+                showMessage('Error de conexión', 'error');
+            }
+            
+            setLoading('genBtn', 'genSpinner', 'genBtnText', false);
+        });
+        
+        function copyKey() {
+            const key = document.getElementById('genKeyDisplay').textContent;
+            navigator.clipboard.writeText(key).then(() => {
+                showMessage('Licencia copiada al portapapeles', 'info');
+            });
+        }
+        
+        // ========================
+        // REVOKE / REACTIVATE
+        // ========================
+        async function revokeLicense(key) {
+            if (!confirm('¿Revocar licencia ' + key + '?')) return;
+            try {
+                const res = await fetch('/api/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'revoke', token: appState.token, key })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('Licencia revocada', 'success');
+                    await loadStats();
+                    await loadLicenses();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (err) {
+                showMessage('Error de conexión', 'error');
+            }
+        }
+        
+        async function reactivateLicense(key) {
+            try {
+                const res = await fetch('/api/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'reactivate', token: appState.token, key })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('Licencia reactivada', 'success');
+                    await loadStats();
+                    await loadLicenses();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (err) {
+                showMessage('Error de conexión', 'error');
+            }
+        }
+        
+        // ========================
+        // LOGOUT
+        // ========================
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('xpe_token');
+            localStorage.removeItem('xpe_username');
+            localStorage.removeItem('xpe_role');
+            appState = { token: '', username: '', role: '' };
+            
+            document.querySelectorAll('.tab')[0].classList.add('active');
+            document.querySelectorAll('.tab')[1].classList.remove('active');
+            document.querySelectorAll('.tab')[1].disabled = true;
+            document.getElementById('tab-login').classList.add('active');
+            document.getElementById('tab-dashboard').classList.remove('active');
+            
+            document.getElementById('loginUser').value = '';
+            document.getElementById('loginPass').value = '';
+            
+            showMessage('Sesión cerrada', 'info');
+        });
+        
+        // ========================
+        // AUTO-LOGIN CHECK
+        // ========================
+        if (appState.token) {
+            loadDashboard();
+        }
+        
+        // ========================
+        // KEYBOARD SHORTCUTS
+        // ========================
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const active = document.querySelector('.tab-content.active');
+                if (active && active.id === 'tab-login') {
+                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+    </script>
+</body>
+</html>

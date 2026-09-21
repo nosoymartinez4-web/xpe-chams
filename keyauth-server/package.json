@@ -1,0 +1,13 @@
+{
+  "name": "xpe-keyauth",
+  "version": "2.0.0",
+  "description": "XPE KeyAuth Server - Custom license authentication for XPE CHAMS v2",
+  "main": "api/auth.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0"
+  }
+}
