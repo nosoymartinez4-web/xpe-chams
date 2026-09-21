@@ -1,8 +1,6 @@
 /*
- * XPE CHAMS v2 - Config implementation
- * Reconstructed from CHAMSMENU.dll by xpe.nettt
+ * XPE CHAMS v2 - Configuration
  */
-
 #include "config.h"
 
-Config_t g_Config;
+Config g_Config;

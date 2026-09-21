@@ -1,136 +1,508 @@
 /*
  * XPE CHAMS v2 - Overlay implementation (D3D11 + ImGui)
- * Author/Copyright: xpe.nettt
- * 
- * Reconstructed from CHAMSMENU.dll
- * Full feature set: Visuals, Chams, Glow, Wallhack, Aimbot, Radar, Misc
+ * OpenGL Chams + D3D11 Overlay with KeyAuth license validation
+ * Author: xpe.nettt / Stealth Proyects
+ * Toggle: F9
  */
 
 #include "overlay.h"
+#include "config.h"
+#include "keyauth.h"
+#include <d3d11.h>
+#include <dxgi.h>
 #include <dwmapi.h>
-#include <algorithm>
-#include <cmath>
+#include <shellapi.h>
+#include <string>
 #include <cstdio>
-#include <fstream>
+#include <thread>
+#include <chrono>
+#include "imgui.h"
+#include "backends/imgui_impl_dx11.h"
+#include "backends/imgui_impl_win32.h"
 
-#pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dwmapi.lib")
 
-// ============================================================
-// Forward declarations
-// ============================================================
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-Overlay* g_pOverlay = nullptr;
+// No WRL needed
 
-// ============================================================
-// Global D3D11 hook state
-// ============================================================
-ID3D11Device* g_pDevice = nullptr;
-ID3D11DeviceContext* g_pContext = nullptr;
-ID3D11RenderTargetView* g_pRenderTarget = nullptr;
-IDXGISwapChain* g_pSwapChain = nullptr;
+// ========================
+// GLOBALS
+// ========================
+Overlay g_Overlay;
 
-// ============================================================
-// Present hook trampoline
-// ============================================================
+// KeyAuth
+extern KeyAuthClass g_KeyAuth;
+
+// D3D11
+static IDXGISwapChain* g_pSwapChain = nullptr;
+static ID3D11Device* g_pd3dDevice = nullptr;
+static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
+static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
+
+// ImGui
+static bool g_ImGuiInitialized = false;
+static bool g_OverlayVisible = false;
+static bool g_Authenticated = false;
+static bool g_AuthFailed = false;
+static char g_LicenseInput[256] = {0};
+static char g_AuthMessage[256] = {0};
+static int g_AuthMessageType = 0; // 0=none, 1=success, 2=error, 3=info
+
+// Chams config
+static float g_ColorR = 1.0f, g_ColorG = 0.0f, g_ColorB = 0.0f;
+static float g_ColorR2 = 1.0f, g_ColorG2 = 1.0f, g_ColorB2 = 0.0f;
+static bool g_ChamsEnabled = true;
+static int g_ChamsMode = 0; // 0=flat, 1=wireframe, 2=texture, 3=glow
+static bool g_StreamMode = false;
+static float g_GlowIntensity = 0.5f;
+
+// ========================
+// FORWARD DECLARATIONS
+// ========================
+static void CreateRenderTarget();
+static void CleanupRenderTarget();
+static void InitImGui();
+static void RenderOverlay();
+static void DrawLicenseScreen();
+static void DrawChamsPanel();
+static void CheckAuthStatus();
+static void UpdateAuthMessage(const char* msg, int type);
+
+// ========================
+// HOOKED PRESENT
+// ========================
 typedef HRESULT(WINAPI* Present_t)(IDXGISwapChain*, UINT, UINT);
 Present_t OriginalPresent = nullptr;
 
+HRESULT WINAPI PresentHook(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags)
+{
+    g_pSwapChain = pSwapChain;
+
+    if (!g_ImGuiInitialized)
+    {
+        if (SUCCEEDED(pSwapChain->GetDevice(__uuidof(ID3D11Device), (void**)&g_pd3dDevice)))
+        {
+            g_pd3dDevice->GetImmediateContext(&g_pd3dDeviceContext);
+            InitImGui();
+        }
+    }
+
+    // Check auth periodically
+    static auto lastAuthCheck = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    if (g_Authenticated && std::chrono::duration_cast<std::chrono::seconds>(now - lastAuthCheck).count() > 60)
+    {
+        lastAuthCheck = now;
+        std::thread([]() { CheckAuthStatus(); }).detach();
+    }
+
+    // Render
+    if (g_ImGuiInitialized)
+    {
+        // Toggle with F9
+        static bool lastF9 = false;
+        bool currentF9 = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
+        if (currentF9 && !lastF9)
+            g_OverlayVisible = !g_OverlayVisible;
+        lastF9 = currentF9;
+
+        RenderOverlay();
+    }
+
+    // Call original
+    if (OriginalPresent)
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
+
+    return S_OK;
+}
+
+// ========================
+// RESIZE BUFFERS HOOK
+// ========================
 typedef HRESULT(WINAPI* ResizeBuffers_t)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 ResizeBuffers_t OriginalResizeBuffers = nullptr;
 
-// ============================================================
-// Constructor / Destructor
-// ============================================================
-Overlay::Overlay()
-    : m_hGameWindow(NULL)
-    , m_hOverlayWindow(NULL)
-    , m_pSwapChain(nullptr)
-    , m_bInitialized(false)
-    , m_bMenuOpen(false)
+HRESULT WINAPI ResizeBuffersHook(IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
 {
-    ZeroMemory(&m_wc, sizeof(m_wc));
-    ZeroMemory(&m_menu, sizeof(m_menu));
+    if (g_ImGuiInitialized)
+    {
+        CleanupRenderTarget();
+    }
 
-    m_menu.bESP = true;
-    m_menu.bBox = true;
-    m_menu.bName = true;
-    m_menu.bHealth = true;
-    m_menu.iBoxType = 0;
-    m_menu.fBoxThickness = 1.5f;
-    m_menu.colInvisible = ImColor(255, 0, 0, 255);
-    m_menu.colVisible = ImColor(0, 255, 0, 255);
-    m_menu.colGlow = ImColor(0, 150, 255, 255);
-    m_menu.colGlowColor = ImColor(0, 150, 255, 180);
-    m_menu.fGlowSize = 3.0f;
-    m_menu.fAimbotFOV = 10.0f;
-    m_menu.fAimbotSmooth = 5.0f;
-    m_menu.fAimbotDistance = 200.0f;
-    m_menu.iRadarSize = 200;
-    m_menu.fRadarZoom = 50.0f;
-    m_menu.fRadarRange = 300.0f;
-    m_menu.fWallhackBrightness = 0.5f;
-    m_menu.colCrosshair = ImColor(0, 255, 0, 255);
-    m_menu.fCrosshairSize = 10.0f;
-    m_menu.bWatermark = true;
+    HRESULT hr = OriginalResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
 
-    g_pOverlay = this;
+    if (SUCCEEDED(hr) && g_ImGuiInitialized)
+    {
+        CreateRenderTarget();
+    }
+
+    return hr;
 }
 
-Overlay::~Overlay()
+// ========================
+// INIT IMGUI
+// ========================
+static void InitImGui()
 {
-    Shutdown();
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+    io.IniFilename = nullptr;
+
+    ImGui::StyleColorsDark();
+
+    // Style customization
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 6.0f;
+    style.FrameRounding = 4.0f;
+    style.PopupRounding = 4.0f;
+    style.ScrollbarRounding = 4.0f;
+    style.GrabRounding = 4.0f;
+    style.WindowBorderSize = 1.0f;
+    style.FrameBorderSize = 1.0f;
+    style.WindowPadding = ImVec2(12, 12);
+    style.FramePadding = ImVec2(8, 6);
+    style.ItemSpacing = ImVec2(8, 6);
+
+    // Colors (dark red theme)
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_WindowBg]          = ImVec4(0.06f, 0.06f, 0.06f, 0.94f);
+    colors[ImGuiCol_TitleBg]           = ImVec4(0.12f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_TitleBgActive]     = ImVec4(0.20f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_Border]            = ImVec4(0.30f, 0.00f, 0.00f, 0.50f);
+    colors[ImGuiCol_FrameBg]           = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered]    = ImVec4(0.20f, 0.05f, 0.05f, 1.00f);
+    colors[ImGuiCol_FrameBgActive]     = ImVec4(0.30f, 0.05f, 0.05f, 1.00f);
+    colors[ImGuiCol_Button]            = ImVec4(0.15f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_ButtonHovered]     = ImVec4(0.25f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_ButtonActive]      = ImVec4(0.35f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_Header]            = ImVec4(0.20f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_HeaderHovered]     = ImVec4(0.30f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_HeaderActive]      = ImVec4(0.40f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_CheckMark]         = ImVec4(0.80f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_SliderGrab]        = ImVec4(0.80f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_SliderGrabActive]  = ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_Text]              = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+    colors[ImGuiCol_TextDisabled]      = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+
+    // Font
+    io.Fonts->AddFontDefault();
+
+    // Initialize ImGui backends
+    ImGui_ImplWin32_Init(FindWindowA(nullptr, nullptr));
+    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+
+    CreateRenderTarget();
+    g_ImGuiInitialized = true;
 }
 
-// ============================================================
-// Create overlay window
-// ============================================================
-bool Overlay::CreateOverlayWindow()
+// ========================
+// RENDER TARGET
+// ========================
+static void CreateRenderTarget()
 {
-    m_wc.cbSize = sizeof(WNDCLASSEXA);
-    m_wc.style = CS_HREDRAW | CS_VREDRAW;
-    m_wc.lpfnWndProc = WndProc;
-    m_wc.cbClsExtra = 0;
-    m_wc.cbWndExtra = 0;
-    m_wc.hInstance = GetModuleHandle(NULL);
-    m_wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    m_wc.hbrBackground = (HBRUSH)CreateSolidBrush(RGB(0, 0, 0));
-    m_wc.lpszClassName = "XPE_OVERLAY_CLASS";
+    if (!g_pSwapChain) return;
 
-    if (!RegisterClassExA(&m_wc))
-        return false;
-
-    RECT rect;
-    GetWindowRect(m_hGameWindow, &rect);
-
-    m_hOverlayWindow = CreateWindowExA(
-        WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE,
-        "XPE_OVERLAY_CLASS",
-        "XPE CHAMS Overlay",
-        WS_POPUP,
-        rect.left, rect.top,
-        rect.right - rect.left, rect.bottom - rect.top,
-        NULL, NULL, m_wc.hInstance, NULL
-    );
-
-    if (!m_hOverlayWindow)
-        return false;
-
-    SetLayeredWindowAttributes(m_hOverlayWindow, RGB(0, 0, 0), 0, LWA_COLORKEY);
-
-    LONG style = GetWindowLong(m_hOverlayWindow, GWL_EXSTYLE);
-    SetWindowLong(m_hOverlayWindow, GWL_EXSTYLE, style | WS_EX_TRANSPARENT);
-
-    ShowWindow(m_hOverlayWindow, SW_SHOW);
-    UpdateWindow(m_hOverlayWindow);
-
-    return true;
+    ID3D11Texture2D* pBackBuffer = nullptr;
+    g_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer);
+    if (pBackBuffer)
+    {
+        g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
+        pBackBuffer->Release();
+    }
 }
 
-// ============================================================
-// Hook D3D11 present
-// ============================================================
-bool Overlay::HookD3D11()
+static void CleanupRenderTarget()
+{
+    if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = nullptr; }
+}
+
+// ========================
+// AUTH FUNCTIONS
+// ========================
+static void UpdateAuthMessage(const char* msg, int type)
+{
+    strncpy_s(g_AuthMessage, msg, sizeof(g_AuthMessage) - 1);
+    g_AuthMessageType = type;
+}
+
+static void CheckAuthStatus()
+{
+    if (!g_KeyAuth.IsLoggedIn()) return;
+
+    bool stillValid = g_KeyAuth.CheckSubscription();
+    if (!stillValid)
+    {
+        g_Authenticated = false;
+        g_AuthFailed = true;
+        UpdateAuthMessage("Tu licencia ha expirado. Contacta 849 639 3107", 2);
+    }
+}
+
+static void AttemptLogin(const char* key)
+{
+    if (!key || !key[0]) return;
+
+    UpdateAuthMessage("Verificando licencia...", 3);
+
+    if (g_KeyAuth.Login(key))
+    {
+        g_Authenticated = true;
+        g_AuthFailed = false;
+        char msg[256];
+        snprintf(msg, sizeof(msg), "Licencia valida. Bienvenido %s", g_KeyAuth.GetUsername());
+        UpdateAuthMessage(msg, 1);
+    }
+    else
+    {
+        g_Authenticated = false;
+        g_AuthFailed = true;
+        char msg[256];
+        const char* err = g_KeyAuth.GetUsername();
+        if (err && err[0])
+            snprintf(msg, sizeof(msg), "Error: %s", err);
+        else
+            snprintf(msg, sizeof(msg), "Error: Licencia invalida");
+        UpdateAuthMessage(msg, 2);
+    }
+}
+
+// ========================
+// LICENSE SCREEN
+// ========================
+static void DrawLicenseScreen()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 screenSize = io.DisplaySize;
+
+    ImGui::SetNextWindowPos(ImVec2(screenSize.x * 0.5f, screenSize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(380, 0), ImGuiCond_Always);
+
+    ImGui::Begin("XPE CHAMS v2", nullptr,
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+
+    // Header
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.80f, 0.00f, 0.00f, 1.00f));
+    ImGui::SetWindowFontScale(1.4f);
+    ImGui::Text("XPE CHAMS v2");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.50f, 0.50f, 0.50f, 1.00f));
+    ImGui::Text("by xpe.nettt / Stealth Proyects");
+    ImGui::PopStyleColor();
+
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (g_Authenticated)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.00f, 0.80f, 0.30f, 1.00f));
+        ImGui::Text("Licencia verificada");
+        ImGui::PopStyleColor();
+
+        ImGui::Text("Usuario: %s", g_KeyAuth.GetUsername());
+        ImGui::Text("Vence:   %s", g_KeyAuth.GetExpiry());
+
+        if (g_KeyAuth.GetRemaining() && g_KeyAuth.GetRemaining()[0])
+        {
+            ImGui::Text("Restante: %s", g_KeyAuth.GetRemaining());
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (ImGui::Button("ABRIR PANEL", ImVec2(ImGui::GetContentRegionAvail().x, 40)))
+        {
+            g_OverlayVisible = true;
+        }
+
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.40f, 0.40f, 0.40f, 1.00f));
+        ImGui::Text("Presiona F9 para abrir/cerrar el panel");
+        ImGui::PopStyleColor();
+    }
+    else
+    {
+        ImGui::Text("Ingresa tu licencia:");
+
+        ImGui::PushItemWidth(-1);
+        ImGui::InputText("##license", g_LicenseInput, sizeof(g_LicenseInput));
+        ImGui::PopItemWidth();
+
+        if (ImGui::Button("VALIDAR LICENCIA", ImVec2(ImGui::GetContentRegionAvail().x, 36)))
+        {
+            AttemptLogin(g_LicenseInput);
+        }
+
+        ImGui::Spacing();
+
+        if (g_AuthMessage[0])
+        {
+            ImVec4 color;
+            switch (g_AuthMessageType)
+            {
+                case 1: color = ImVec4(0.00f, 0.80f, 0.30f, 1.00f); break;
+                case 2: color = ImVec4(0.80f, 0.00f, 0.00f, 1.00f); break;
+                case 3: color = ImVec4(0.80f, 0.80f, 0.00f, 1.00f); break;
+                default: color = ImVec4(0.80f, 0.80f, 0.80f, 1.00f);
+            }
+            ImGui::PushStyleColor(ImGuiCol_Text, color);
+            ImGui::TextWrapped("%s", g_AuthMessage);
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.60f, 0.60f, 0.60f, 1.00f));
+        ImGui::Text("Sin licencia? Contacta:");
+        ImGui::PopStyleColor();
+
+        if (ImGui::Button("WhatsApp 849 639 3107", ImVec2(ImGui::GetContentRegionAvail().x, 30)))
+        {
+            ShellExecuteA(nullptr, "open", "https://wa.me/18496393107", nullptr, nullptr, SW_SHOWNORMAL);
+        }
+
+        if (ImGui::Button("Discord", ImVec2(ImGui::GetContentRegionAvail().x, 30)))
+        {
+            ShellExecuteA(nullptr, "open", "https://discord.gg/My6QkneU6j", nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    }
+
+    ImGui::End();
+}
+
+// ========================
+// CHAMS PANEL
+// ========================
+static void DrawChamsPanel()
+{
+    if (!g_OverlayVisible) return;
+
+    ImGui::SetNextWindowSize(ImVec2(320, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("XPE CHAMS v2 - Panel", &g_OverlayVisible,
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+
+    if (ImGui::CollapsingHeader("Chams", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Checkbox("Activar Chams", &g_ChamsEnabled);
+
+        ImGui::Spacing();
+        ImGui::Text("Modo:");
+        const char* modes[] = { "Solido", "Wireframe", "Textura", "Glow" };
+        ImGui::Combo("##mode", &g_ChamsMode, modes, IM_ARRAYSIZE(modes));
+
+        ImGui::Spacing();
+        ImGui::Text("Color principal:");
+        ImGui::ColorEdit3("##color1", &g_ColorR, ImGuiColorEditFlags_NoInputs);
+
+        if (g_ChamsMode == 3)
+        {
+            ImGui::Text("Color secundario (Glow):");
+            ImGui::ColorEdit3("##color2", &g_ColorR2, ImGuiColorEditFlags_NoInputs);
+
+            ImGui::Text("Intensidad Glow:");
+            ImGui::SliderFloat("##glow", &g_GlowIntensity, 0.0f, 1.0f, "%.2f");
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Stream Mode", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Checkbox("Activar Stream Mode", &g_StreamMode);
+        if (g_StreamMode)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.80f, 0.80f, 0.00f, 1.00f));
+            ImGui::Text("Stream Mode activo - chams ocultos en streaming");
+            ImGui::PopStyleColor();
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Informacion"))
+    {
+        ImGui::Text("Usuario: %s", g_KeyAuth.GetUsername());
+        ImGui::Text("Licencia vence: %s", g_KeyAuth.GetExpiry());
+        if (g_KeyAuth.GetRemaining() && g_KeyAuth.GetRemaining()[0])
+            ImGui::Text("Tiempo restante: %s", g_KeyAuth.GetRemaining());
+        ImGui::Text("Toggle: F9");
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::Button("CERRAR SESION", ImVec2(ImGui::GetContentRegionAvail().x, 30)))
+    {
+        g_Authenticated = false;
+        g_OverlayVisible = false;
+        g_LicenseInput[0] = 0;
+        g_AuthMessage[0] = 0;
+        g_AuthMessageType = 0;
+    }
+
+    if (ImGui::Button("SOPORTE WhatsApp", ImVec2(ImGui::GetContentRegionAvail().x, 30)))
+    {
+        ShellExecuteA(nullptr, "open", "https://wa.me/18496393107", nullptr, nullptr, SW_SHOWNORMAL);
+    }
+
+    ImGui::End();
+}
+
+// ========================
+// RENDER
+// ========================
+static void RenderOverlay()
+{
+    ImGui_ImplDX11_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+
+    if (!g_Authenticated)
+    {
+        DrawLicenseScreen();
+    }
+    else
+    {
+        if (g_OverlayVisible)
+        {
+            DrawChamsPanel();
+        }
+
+        if (!g_OverlayVisible)
+        {
+            ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+            ImGui::SetNextWindowBgAlpha(0.3f);
+            ImGui::Begin("##watermark", nullptr,
+                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+                ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.80f, 0.00f, 0.00f, 0.60f));
+            ImGui::Text("XPE CHAMS v2 - F9");
+            ImGui::PopStyleColor();
+
+            ImGui::End();
+        }
+    }
+
+    ImGui::Render();
+
+    if (g_pd3dDeviceContext && g_mainRenderTargetView)
+    {
+        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    }
+}
+
+// ========================
+// HOOK D3D11
+// ========================
+static bool HookD3D11()
 {
     ID3D11Device* dev = nullptr;
     ID3D11DeviceContext* ctx = nullptr;
@@ -142,17 +514,17 @@ bool Overlay::HookD3D11()
     sd.BufferDesc.Width = 1;
     sd.BufferDesc.Height = 1;
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.OutputWindow = m_hOverlayWindow;
+    sd.OutputWindow = GetDesktopWindow();
     sd.SampleDesc.Count = 1;
     sd.Windowed = TRUE;
 
-    D3D11CreateDeviceAndSwapChain(
+    HRESULT hr = D3D11CreateDeviceAndSwapChain(
         nullptr, D3D_DRIVER_TYPE_HARDWARE,
         nullptr, 0, nullptr, 0,
         D3D11_SDK_VERSION, &sd, &swap, &dev, nullptr, &ctx
     );
 
-    if (!swap) return false;
+    if (FAILED(hr) || !swap) return false;
 
     void** vtable = *(void***)swap;
     OriginalPresent = (Present_t)vtable[8];
@@ -174,465 +546,26 @@ bool Overlay::HookD3D11()
     return true;
 }
 
-// ============================================================
-// Initialize overlay
-// ============================================================
-bool Overlay::Initialize(HWND hGameWindow)
+// ========================
+// PUBLIC METHODS
+// ========================
+void Overlay::Initialize()
 {
-    m_hGameWindow = hGameWindow;
-
-    if (!CreateOverlayWindow())
-    {
-        g_Config.Log("Overlay: Failed to create overlay window");
-        return false;
-    }
-
-    if (!HookD3D11())
-    {
-        g_Config.Log("Overlay: Failed to hook D3D11");
-        return false;
-    }
-
-    // Initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr;
-    io.LogFilename = nullptr;
-    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-
-    ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 4.0f;
-    style.FrameRounding = 3.0f;
-    style.ScrollbarSize = 12.0f;
-    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
-    style.Colors[ImGuiCol_Button] = ImVec4(0.20f, 0.20f, 0.80f, 0.40f);
-    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.30f, 0.30f, 0.90f, 0.60f);
-
-    ImGui_ImplWin32_Init(m_hOverlayWindow);
-    ImGui_ImplDX11_Init(g_pDevice, g_pContext);
-
-    m_bInitialized = true;
-    g_Config.Log("Overlay initialized successfully");
-    return true;
+    HookD3D11();
 }
 
-// ============================================================
-// Present hook (D3D11)
-// ============================================================
-HRESULT WINAPI Overlay::PresentHook(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags)
-{
-    if (!g_pOverlay)
-        return OriginalPresent(pSwapChain, SyncInterval, Flags);
-
-    if (!g_pDevice || !g_pContext)
-    {
-        if (SUCCEEDED(pSwapChain->GetDevice(__uuidof(ID3D11Device), (void**)&g_pDevice)))
-        {
-            g_pDevice->GetImmediateContext(&g_pContext);
-            g_pOverlay->m_pSwapChain = pSwapChain;
-
-            ID3D11Texture2D* pBuffer = nullptr;
-            pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBuffer);
-            if (pBuffer)
-            {
-                g_pDevice->CreateRenderTargetView(pBuffer, nullptr, &g_pRenderTarget);
-                pBuffer->Release();
-            }
-
-            // Re-init ImGui with the real device
-            ImGui_ImplDX11_Shutdown();
-            ImGui_ImplDX11_Init(g_pDevice, g_pContext);
-        }
-    }
-
-    HRESULT hr = OriginalPresent(pSwapChain, SyncInterval, Flags);
-
-    if (g_pDevice && g_pContext && g_pRenderTarget)
-    {
-        g_pOverlay->Render();
-    }
-
-    return hr;
-}
-
-// ============================================================
-// ResizeBuffers hook
-// ============================================================
-HRESULT WINAPI Overlay::ResizeBuffersHook(IDXGISwapChain* pSwapChain, UINT BufferCount,
-    UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
-{
-    if (g_pRenderTarget)
-    {
-        g_pRenderTarget->Release();
-        g_pRenderTarget = nullptr;
-    }
-
-    HRESULT hr = OriginalResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
-
-    if (SUCCEEDED(hr))
-    {
-        ID3D11Texture2D* pBuffer = nullptr;
-        pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBuffer);
-        if (pBuffer)
-        {
-            g_pDevice->CreateRenderTargetView(pBuffer, nullptr, &g_pRenderTarget);
-            pBuffer->Release();
-        }
-    }
-
-    return hr;
-}
-
-// ============================================================
-// Main render
-// ============================================================
-void Overlay::Render()
-{
-    if (!m_bInitialized || !g_pDevice || !g_pContext)
-        return;
-
-    // Start ImGui frame
-    ImGui_ImplDX11_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
-
-    // Handle input passthrough
-    LONG style = GetWindowLong(m_hOverlayWindow, GWL_EXSTYLE);
-    if (m_bMenuOpen)
-    {
-        SetWindowLong(m_hOverlayWindow, GWL_EXSTYLE, style & ~WS_EX_TRANSPARENT);
-        SetForegroundWindow(m_hOverlayWindow);
-    }
-    else
-    {
-        SetWindowLong(m_hOverlayWindow, GWL_EXSTYLE, style | WS_EX_TRANSPARENT);
-    }
-
-    // INSERT key to toggle menu
-    if (GetAsyncKeyState(VK_INSERT) & 1)
-        ToggleMenu();
-
-    // Login window
-    if (g_Config.bShowLogin)
-        RenderLoginWindow();
-
-    // Main menu
-    if (m_bMenuOpen)
-        RenderMenu();
-
-    // Watermark
-    if (m_menu.bWatermark)
-        RenderWatermark();
-
-    // Crosshair
-    if (m_menu.bCrosshair)
-        RenderCrosshair();
-
-    // Streamer mode toggle (F6)
-    if (GetAsyncKeyState(VK_F6) & 1)
-    {
-        m_streamer.Toggle();
-        g_Config.Log("Streamer mode: %s", m_streamer.IsStreaming() ? "ON" : "OFF");
-    }
-
-    // Render
-    ImGui::Render();
-    if (g_pRenderTarget)
-    {
-        g_pContext->OMSetRenderTargets(1, &g_pRenderTarget, nullptr);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    }
-}
-
-// ============================================================
-// Login window
-// ============================================================
-void Overlay::RenderLoginWindow()
-{
-    static char key[256] = { 0 };
-    static char status[256] = "Enter your license key";
-    static bool loggingIn = false;
-
-    ImGui::SetNextWindowSize(ImVec2(350, 200));
-    ImGui::SetNextWindowPos(ImVec2(
-        (GetSystemMetrics(SM_CXSCREEN) - 350) / 2.0f,
-        (GetSystemMetrics(SM_CYSCREEN) - 200) / 2.0f
-    ));
-
-    ImGui::Begin("XPE CHAMS - Login", nullptr,
-        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoScrollbar);
-
-    ImGui::TextWrapped("Welcome to XPE CHAMS\nAuthor: xpe.nettt\n");
-    ImGui::Separator();
-
-    ImGui::Text("License Key:");
-    ImGui::PushItemWidth(-1);
-    ImGui::InputText("##key", key, sizeof(key));
-    ImGui::PopItemWidth();
-
-    if (loggingIn)
-    {
-        ImGui::Text("Authenticating...");
-    }
-    else if (ImGui::Button("Login", ImVec2(-1, 30)))
-    {
-        loggingIn = true;
-        strcpy_s(status, "Authenticating...");
-
-        if (g_KeyAuth.login(key))
-        {
-            g_Config.bShowLogin = false;
-            g_Config.bAuthenticated = true;
-
-            HKEY hKey;
-            if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\XPE CHAMS",
-                0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS)
-            {
-                RegSetValueExA(hKey, "LicenseKey", 0, REG_SZ,
-                    (const BYTE*)key, (DWORD)strlen(key) + 1);
-                RegCloseKey(hKey);
-            }
-
-            strcpy_s(status, "Authenticated!");
-        }
-        else
-        {
-            strcpy_s(status, "Invalid key!");
-        }
-        loggingIn = false;
-    }
-
-    ImGui::TextColored(ImVec4(1, 1, 0, 1), "%s", status);
-    ImGui::End();
-}
-
-// ============================================================
-// Main menu
-// ============================================================
-void Overlay::RenderMenu()
-{
-    ImGui::SetNextWindowSize(ImVec2(520, 400), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
-
-    ImGui::Begin("XPE CHAMS v2", &m_bMenuOpen,
-        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse);
-
-    if (ImGui::BeginTabBar("##tabs", ImGuiTabBarFlags_NoCloseWithMiddleMouseButton))
-    {
-        if (ImGui::BeginTabItem("Visuals"))
-        {
-            ImGui::BeginChild("##vis", ImVec2(0, 0), true);
-            ImGui::Checkbox("Enable ESP", &m_menu.bESP);
-            ImGui::Checkbox("Box ESP", &m_menu.bBox);
-            ImGui::Checkbox("Filled Box", &m_menu.bBoxFilled);
-            ImGui::Checkbox("Name ESP", &m_menu.bName);
-            ImGui::Checkbox("Health Bar", &m_menu.bHealth);
-            ImGui::Checkbox("Armor Bar", &m_menu.bArmor);
-            ImGui::Checkbox("Weapon Name", &m_menu.bWeapon);
-            ImGui::Checkbox("Distance", &m_menu.bDistance);
-            ImGui::Checkbox("Line ESP", &m_menu.bLine);
-            ImGui::Separator();
-            ImGui::Combo("Box Type", &m_menu.iBoxType, "Corner\0Full 2D\0Box 3D\0\0");
-            ImGui::SliderFloat("Thickness", &m_menu.fBoxThickness, 0.5f, 5.0f, "%.1f");
-            ImGui::Separator();
-            ImGui::Checkbox("Wallhack", &m_menu.bWallhack);
-            ImGui::Checkbox("WH + Chams", &m_menu.bWallhackChams);
-            ImGui::Checkbox("WH + Glow", &m_menu.bWallhackGlow);
-            ImGui::SliderFloat("Brightness", &m_menu.fWallhackBrightness, 0.0f, 1.0f, "%.2f");
-            ImGui::Separator();
-            ImGui::Checkbox("Glow ESP", &m_menu.bGlow);
-            ImGui::Checkbox("Glow Through Walls", &m_menu.bGlowThroughWalls);
-            ImGui::SliderFloat("Glow Size", &m_menu.fGlowSize, 1.0f, 10.0f, "%.1f");
-            ImGui::ColorEdit4("Glow Color", (float*)&m_menu.colGlowColor, ImGuiColorEditFlags_NoInputs);
-            ImGui::EndChild();
-            ImGui::EndTabItem();
-        }
-
-        if (ImGui::BeginTabItem("Chams"))
-        {
-            ImGui::BeginChild("##chams", ImVec2(0, 0), true);
-            ImGui::Checkbox("Enable Chams", &m_menu.bChams);
-            ImGui::Separator();
-            ImGui::Combo("Chams Type", &m_menu.iChamsType,
-                "Shaded\0Flat\0Wireframe\0Glow\0\0");
-            ImGui::Separator();
-            ImGui::Text("Invisible (behind wall)");
-            ImGui::ColorEdit4("Invis Color", (float*)&m_menu.colInvisible,
-                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
-            ImGui::Separator();
-            ImGui::Text("Visible (in front)");
-            ImGui::ColorEdit4("Vis Color", (float*)&m_menu.colVisible,
-                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
-            ImGui::Separator();
-            ImGui::Checkbox("Wireframe Mode", &m_menu.bChamsWireframe);
-            ImGui::Checkbox("Flat Shading", &m_menu.bChamsFlat);
-            ImGui::EndChild();
-            ImGui::EndTabItem();
-        }
-
-        if (ImGui::BeginTabItem("Aimbot"))
-        {
-            ImGui::BeginChild("##aim", ImVec2(0, 0), true);
-            ImGui::Checkbox("Enable Aimbot", &m_menu.bAimbot);
-            ImGui::Checkbox("Draw FOV Circle", &m_menu.bAimbotFOV);
-            ImGui::Checkbox("Snap Aim", &m_menu.bAimbotSnap);
-            ImGui::Checkbox("Visible Only", &m_menu.bAimbotVisibleOnly);
-            ImGui::Separator();
-            ImGui::SliderFloat("FOV Radius", &m_menu.fAimbotFOV, 1.0f, 90.0f, "%.0f deg");
-            ImGui::SliderFloat("Smoothness", &m_menu.fAimbotSmooth, 1.0f, 30.0f, "%.0f");
-            ImGui::SliderFloat("Max Distance", &m_menu.fAimbotDistance, 10.0f, 500.0f, "%.0f m");
-            ImGui::Separator();
-            ImGui::Combo("Aim Bone", &m_menu.iAimbotBone, "Head\0Neck\0Chest\0Pelvis\0\0");
-            ImGui::EndChild();
-            ImGui::EndTabItem();
-        }
-
-        if (ImGui::BeginTabItem("Radar"))
-        {
-            ImGui::BeginChild("##radar", ImVec2(0, 0), true);
-            ImGui::Checkbox("Enable Radar", &m_menu.bRadar);
-            ImGui::Checkbox("Radar Background", &m_menu.bRadarBackground);
-            ImGui::Separator();
-            ImGui::SliderInt("Radar Size", &m_menu.iRadarSize, 100, 400, "%d px");
-            ImGui::SliderFloat("Radar Zoom", &m_menu.fRadarZoom, 10.0f, 200.0f, "%.0f");
-            ImGui::SliderFloat("Radar Range", &m_menu.fRadarRange, 50.0f, 500.0f, "%.0f");
-            ImGui::EndChild();
-            ImGui::EndTabItem();
-        }
-
-        if (ImGui::BeginTabItem("Misc"))
-        {
-            ImGui::BeginChild("##misc", ImVec2(0, 0), true);
-            ImGui::Checkbox("Show Watermark", &m_menu.bWatermark);
-            ImGui::Checkbox("Crosshair", &m_menu.bCrosshair);
-            ImGui::Separator();
-            ImGui::Combo("Crosshair Type", &m_menu.iCrosshairType, "Cross\0Circle\0Dot\0\0");
-            ImGui::SliderFloat("Size", &m_menu.fCrosshairSize, 2.0f, 30.0f, "%.0f");
-            ImGui::ColorEdit4("Color", (float*)&m_menu.colCrosshair, ImGuiColorEditFlags_NoInputs);
-            ImGui::Separator();
-            bool streaming = m_streamer.IsStreaming();
-            if (ImGui::Checkbox("Streamer Mode", &streaming))
-                m_streamer.Toggle();
-            ImGui::Text("F6 to toggle | OBS/SLOBS detection");
-            ImGui::Separator();
-            if (ImGui::Button("Save Config", ImVec2(120, 25)))
-                g_Config.Save("xpe_chams_config.ini");
-            ImGui::SameLine();
-            if (ImGui::Button("Load Config", ImVec2(120, 25)))
-                g_Config.Load("xpe_chams_config.ini");
-            ImGui::Separator();
-            ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "XPE CHAMS v2 | xpe.nettt");
-            ImGui::EndChild();
-            ImGui::EndTabItem();
-        }
-
-        ImGui::EndTabBar();
-    }
-
-    ImGui::Separator();
-    ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "XPE CHAMS | xpe.nettt");
-    ImGui::SameLine(ImGui::GetWindowWidth() - 180);
-    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "INSERT: Menu | F6: Stream");
-    ImGui::End();
-}
-
-// ============================================================
-// Watermark
-// ============================================================
-void Overlay::RenderWatermark()
-{
-    if (m_streamer.IsStreaming() && m_streamer.ShouldHideWatermark())
-        return;
-
-    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.6f);
-
-    if (ImGui::Begin("##wm", nullptr,
-        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoScrollbar))
-    {
-        ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "XPE CHAMS");
-        ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "v2 | xpe.nettt");
-    }
-    ImGui::End();
-}
-
-// ============================================================
-// Crosshair
-// ============================================================
-void Overlay::RenderCrosshair()
-{
-    ImDrawList* dl = ImGui::GetBackgroundDrawList();
-    ImVec2 ctr((float)GetSystemMetrics(SM_CXSCREEN) / 2.0f,
-        (float)GetSystemMetrics(SM_CYSCREEN) / 2.0f);
-    ImColor col = m_menu.colCrosshair;
-    float sz = m_menu.fCrosshairSize;
-    float gap = 3.0f;
-
-    switch (m_menu.iCrosshairType)
-    {
-    case 0: // Cross
-        dl->AddLine(ImVec2(ctr.x - sz, ctr.y), ImVec2(ctr.x - gap, ctr.y), col, 1.5f);
-        dl->AddLine(ImVec2(ctr.x + gap, ctr.y), ImVec2(ctr.x + sz, ctr.y), col, 1.5f);
-        dl->AddLine(ImVec2(ctr.x, ctr.y - sz), ImVec2(ctr.x, ctr.y - gap), col, 1.5f);
-        dl->AddLine(ImVec2(ctr.x, ctr.y + gap), ImVec2(ctr.x, ctr.y + sz), col, 1.5f);
-        break;
-    case 1: // Circle
-        dl->AddCircle(ctr, sz, col, 0, 1.5f);
-        dl->AddCircleFilled(ctr, 2.0f, col);
-        break;
-    case 2: // Dot
-        dl->AddCircleFilled(ctr, sz * 0.5f, col);
-        break;
-    }
-}
-
-// ============================================================
-// Window procedure
-// ============================================================
-LRESULT CALLBACK Overlay::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-        return true;
-
-    switch (msg)
-    {
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        return 0;
-    case WM_SIZE:
-        if (g_pSwapChain && g_pDevice && wParam != SIZE_MINIMIZED)
-        {
-            if (g_pRenderTarget)
-            {
-                g_pContext->OMSetRenderTargets(0, 0, 0);
-                g_pRenderTarget->Release();
-                g_pRenderTarget = nullptr;
-            }
-        }
-        return 0;
-    }
-    return DefWindowProcA(hWnd, msg, wParam, lParam);
-}
-
-// ============================================================
-// Shutdown
-// ============================================================
 void Overlay::Shutdown()
 {
-    if (m_bInitialized)
+    if (g_ImGuiInitialized)
     {
         ImGui_ImplDX11_Shutdown();
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
-        m_bInitialized = false;
+        g_ImGuiInitialized = false;
     }
-    if (g_pRenderTarget) { g_pRenderTarget->Release(); g_pRenderTarget = nullptr; }
-    if (m_hOverlayWindow) { DestroyWindow(m_hOverlayWindow); m_hOverlayWindow = NULL; }
-    UnregisterClassA("XPE_OVERLAY_CLASS", m_wc.hInstance);
+
+    CleanupRenderTarget();
+
+    if (g_pd3dDeviceContext) { g_pd3dDeviceContext->Release(); g_pd3dDeviceContext = nullptr; }
+    if (g_pd3dDevice) { g_pd3dDevice->Release(); g_pd3dDevice = nullptr; }
 }

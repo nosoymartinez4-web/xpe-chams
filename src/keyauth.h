@@ -25,18 +25,15 @@ private:
 public:
     KeyAuthClass();
 
-    // Login with a license key against xpe-keyauth.vercel.app
     bool Login(const char* licenseKey);
-
-    // Check if subscription is still valid
     bool CheckSubscription();
 
-    // Getters    int  GetStatus() const;
-    const char* GetRemaining() const;
+    int GetStatus() const;
     bool IsLoggedIn() const;
     bool IsSubscribed() const;
     const char* GetUsername() const;
     const char* GetExpiry() const;
+    const char* GetRemaining() const;
 };
 
 extern KeyAuthClass g_KeyAuth;

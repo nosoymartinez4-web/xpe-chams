@@ -1,0 +1,123 @@
+name: Build & Release XPE CHAMS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v2.0.1)'
+        required: false
+        default: 'auto'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+
+      - name: Install dependencies
+        run: |
+          choco install -y mingw windres
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" >> $env:GITHUB_PATH
+
+      - name: Compile resource file
+        run: windres src/resource.rc -O coff -o build/resource.res
+        working-directory: ${{ github.workspace }}
+
+      - name: Compile all .cpp files
+        run: |
+          g++ -std=c++17 -O2 -m64 -c src/dllmain.cpp -o build/dllmain.o -I src -I vendor/imgui -I vendor/imgui/backends
+          g++ -std=c++17 -O2 -m64 -c src/overlay.cpp -o build/overlay.o -I src -I vendor/imgui -I vendor/imgui/backends
+          g++ -std=c++17 -O2 -m64 -c src/keyauth.cpp -o build/keyauth.o -I src
+          g++ -std=c++17 -O2 -m64 -c src/config.cpp -o build/config.o -I src
+          g++ -std=c++17 -O2 -m64 -c src/glchams.cpp -o build/glchams.o -I src
+          g++ -std=c++17 -O2 -m64 -c src/streammode.cpp -o build/streammode.o -I src
+          g++ -std=c++17 -O2 -m64 -c src/loader_proxy.cpp -o build/loader_proxy.o -I src
+          g++ -std=c++17 -O2 -m64 -c vendor/imgui/imgui.cpp -o build/imgui.o -I vendor/imgui
+          g++ -std=c++17 -O2 -m64 -c vendor/imgui/imgui_draw.cpp -o build/imgui_draw.o -I vendor/imgui
+          g++ -std=c++17 -O2 -m64 -c vendor/imgui/imgui_widgets.cpp -o build/imgui_widgets.o -I vendor/imgui
+          g++ -std=c++17 -O2 -m64 -c vendor/imgui/imgui_tables.cpp -o build/imgui_tables.o -I vendor/imgui
+          g++ -std=c++17 -O2 -m64 -c vendor/imgui/backends/imgui_impl_dx11.cpp -o build/imgui_impl_dx11.o -I vendor/imgui -I vendor/imgui/backends
+          g++ -std=c++17 -O2 -m64 -c vendor/imgui/backends/imgui_impl_win32.cpp -o build/imgui_impl_win32.o -I vendor/imgui -I vendor/imgui/backends
+        working-directory: ${{ github.workspace }}
+
+      - name: Link DLL
+        run: |
+          g++ -m64 -shared -static-libgcc -static-libstdc++ -o dist/XPE_CHAMS.dll build/*.o build/resource.res -lopengl32 -lgdi32 -lwinmm -lwininet -ld3d11 -ld3dcompiler -ldxgi -luuid -ldwmapi -Wl,--subsystem,windows
+        working-directory: ${{ github.workspace }}
+
+      - name: Set file date to 2017
+        run: |
+          $dll = "${{ github.workspace }}\dist\XPE_CHAMS.dll"
+          $oldDate = Get-Date "2017-01-01 00:00:00"
+          Set-ItemProperty -Path $dll -Name CreationTime -Value $oldDate
+          Set-ItemProperty -Path $dll -Name LastWriteTime -Value $oldDate
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XPE_CHAMS.dll
+          path: ${{ github.workspace }}\dist\XPE_CHAMS.dll
+          if-no-files-found: error
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'release:')
+
+    steps:
+      - name: Download DLL artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: XPE_CHAMS.dll
+          path: ./dist
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event.inputs.version }}" != "" && "${{ github.event.inputs.version }}" != "auto" ]]; then
+            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v2.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "XPE CHAMS v2 - Release ${{ steps.version.outputs.tag }}"
+          body: |
+            ## 🎯 XPE CHAMS v2
+            
+            **by xpe.nettt / Stealth Proyects**
+            
+            ### ✅ Cambios en esta versión:
+            - DLL compilada con MinGW x64
+            - KeyAuth integrado (xpe-keyauth.vercel.app)
+            - Toggle con F9
+            - Chams: Sólido, Wireframe, Textura, Glow
+            - Stream Mode
+            - Fecha de creación: 2017
+            
+            ### 🔐 Sistema de Licencias:
+            - [KeyAuth Web](https://xpe-keyauth.vercel.app)
+            - WhatsApp: 849 639 3107
+            - Discord: https://discord.gg/My6QkneU6j
+            
+            ### 📦 Instalación:
+            1. Renombrar a `opengl32.dll` y poner en carpeta del emulador
+            2. O inyectar con Process Hacker
+            3. Presionar F9 para abrir panel
+          files: ./dist/XPE_CHAMS.dll
+          draft: false
+          prerelease: false

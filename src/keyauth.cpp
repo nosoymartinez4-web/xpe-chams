@@ -90,7 +90,6 @@ bool KeyAuthClass::Login(const char* licenseKey)
         return false;
     }
 
-    // Parse JSON
     const char* successStr = strstr(response, "\"success\":");
     if (!successStr)
     {
@@ -107,7 +106,6 @@ bool KeyAuthClass::Login(const char* licenseKey)
         m_subscribed = true;
         m_statuscode = 1;
 
-        // Extract username
         const char* userStr = strstr(response, "\"username\":\"");
         if (userStr)
         {
@@ -118,7 +116,6 @@ bool KeyAuthClass::Login(const char* licenseKey)
             m_username[i] = 0;
         }
 
-        // Extract expiry
         const char* expStr = strstr(response, "\"expiry\":\"");
         if (expStr)
         {
@@ -129,7 +126,6 @@ bool KeyAuthClass::Login(const char* licenseKey)
             m_expiry[i] = 0;
         }
 
-        // Extract remaining time
         const char* remStr = strstr(response, "\"remaining\":\"");
         if (remStr)
         {
