@@ -1,4 +1,4 @@
-// XPE KeyAuth - Seller endpoints
+const getRawBody = require('raw-body');
 const licenses = global.__licenses || {};
 global.__licenses = licenses;
 
@@ -18,43 +18,44 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') { res.status(200).end(); return; }
     if (req.method !== 'POST') { return res.status(405).json({ success: false }); }
 
-    let data;
-    if (req.body && Object.keys(req.body).length > 0) {
-        data = req.body;
-    } else {
-        let body = '';
-        await new Promise(resolve => { req.on('data', c => body += c); req.on('end', resolve); });
-        try { data = JSON.parse(body); } catch(e) { return res.status(400).json({ success: false, message: 'JSON inválido' }); }
-    }
+    try {
+        const raw = await getRawBody(req);
+        const data = JSON.parse(raw.toString());
 
-    if (!data.token || data.token.length < 5) {
-        return res.status(401).json({ success: false, message: 'No autorizado' });
-    }
+        if (!data.token || data.token.length < 5) {
+            return res.status(401).json({ success: false, message: 'No autorizado' });
+        }
 
-    switch (data.action) {
-        case 'generate': {
-            const days = parseInt(data.duration) || 30;
-            const newKey = genKey();
-            const created = new Date();
-            const expiry = new Date(created);
-            expiry.setDate(expiry.getDate() + days);
-            licenses[newKey] = {
-                key: newKey, username: data.customer || '',
-                created: created.toISOString().split('T')[0],
-                expiry: expiry.toISOString().split('T')[0],
-                active: true, hwid: '', seller: data.username || 'unknown', lastLogin: ''
-            };
-            return res.json({ success: true, key: newKey, expiry: licenses[newKey].expiry });
+        switch (data.action) {
+            case 'generate': {
+                const days = parseInt(data.duration) || 30;
+                const newKey = genKey();
+                const created = new Date();
+                const expiry = new Date(created);
+                expiry.setDate(expiry.getDate() + days);
+                licenses[newKey] = {
+                    key: newKey, username: data.customer || '',
+                    created: created.toISOString().split('T')[0],
+                    expiry: expiry.toISOString().split('T')[0],
+                    active: true, hwid: '', seller: data.username || 'unknown', lastLogin: ''
+                };
+                return res.json({ success: true, key: newKey, expiry: licenses[newKey].expiry });
+            }
+            case 'list': {
+                const myList = Object.values(licenses).filter(l => l.seller === data.username);
+                return res.json({ success: true, licenses: myList });
+            }
+            case 'stats': {
+                const mine = Object.values(licenses).filter(l => l.seller === data.username);
+                return res.json({ success: true, stats: {
+                    total: mine.length,
+                    active: mine.filter(l => l.active).length
+                }});
+            }
+            default:
+                return res.json({ success: false, message: 'Acción desconocida' });
         }
-        case 'list': {
-            const myList = Object.values(licenses).filter(l => l.seller === data.username);
-            return res.json({ success: true, licenses: myList });
-        }
-        case 'stats': {
-            const mine = Object.values(licenses).filter(l => l.seller === data.username);
-            return res.json({ success: true, stats: { total: mine.length, active: mine.filter(l => l.active).length } });
-        }
-        default:
-            return res.json({ success: false, message: 'Acción desconocida' });
+    } catch (e) {
+        res.status(400).json({ success: false, message: 'Error: ' + e.message });
     }
 };

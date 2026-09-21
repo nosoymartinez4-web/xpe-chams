@@ -1,5 +1,8 @@
 {
   "name": "xpe-keyauth",
   "version": "2.0.0",
-  "description": "XPE KeyAuth Server - Custom license authentication"
+  "description": "XPE KeyAuth Server",
+  "dependencies": {
+    "raw-body": "^3.0.0"
+  }
 }
